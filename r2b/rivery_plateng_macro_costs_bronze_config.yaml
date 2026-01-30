@@ -1,0 +1,24 @@
+name: rivery_plateng_macro_costs_bronze
+datasource: custom
+domain: custos_cloud
+ingestion_columns: true
+execution_columns: true
+description: |-
+  ** Propósito: **
+
+  *** Escopo: **
+
+  *** Audiência: **
+
+  *** Processo: **
+
+  *** Recorrência de atualização: **
+first_execution: last_day
+source:
+  path: s3://data-raw-zone-platform-engineering-{env}/observability-platform/finops/rivery/plateng_macro_costs/{year}{month}{day}/*/*.csv
+  type: csv
+  sep: ','
+to:
+  database: custos_cloud_bronze
+  table: rivery_plateng_macro_costs_bronze
+  mode: overwrite

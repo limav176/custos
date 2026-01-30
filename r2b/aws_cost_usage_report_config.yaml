@@ -1,0 +1,27 @@
+name: aws_cost_usage_report_bronze
+datasource: custom
+domain: custos_cloud
+ingestion_columns: true
+description: |-
+  ** Propósito: **
+
+  *** Escopo: **
+
+  *** Audiência: **
+
+  *** Processo: **
+
+  *** Recorrência de atualização: **
+first_execution: full_load
+source:
+  path: [
+        "s3://cur-mastereport/reports/cur-master/cur-master/year=2023/month=12/*.parquet",
+        "s3://cur-mastereport/reports/cur-master/cur-master/year=2024/month=*/*.parquet",
+        "s3://cur-mastereport/reports/cur-master/cur-master/year=2025/month=*/*.parquet"
+  ]
+  type: parquet
+  throw_error_if_path_does_not_exist: false
+to:
+  database: custos_cloud_bronze
+  table: aws_cost_usage_report
+  mode: overwrite

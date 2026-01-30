@@ -1,0 +1,6 @@
+name: custos_cloud
+schedule: 30 03 * * *
+tags: ["observability"]
+emr_tags:
+  CircleId: "62992fc2c997c81650231188"
+  Circle: "Observability"
