@@ -1,0 +1,71 @@
+version: 2
+
+models:
+  - name: aws_rds_costs_by_sdk
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Criar uma visão de custo normalizada para o Amazon RDS. Este modelo intencionalmente **substitui** o custo real faturado de instâncias provisionadas pelo seu preço teórico **On-Demand**, extraído de uma tabela de preços customizada (`stg_aws_rds_prices`). O objetivo é permitir análises de eficiência de reservas e "what-if", ao mesmo tempo que calcula a economia potencial (`opportunity_savings`) de se ter reservas.
+
+      **Escopo:** Inclui custos de instâncias RDS provisionadas (ex. 'db.t3.medium'), Serverless e custos de Suporte Estendido. Exclui instâncias 'db.serverless' do cálculo de custo teórico, tratando-as separadamente. A análise se baseia em dados das tabelas `aws_rds_instances_details` e `intermediate_aws_cost_usage_report`.
+      
+      **Audiência:** Engenheiros de FinOps, Tech Leads e gestores de infraestrutura que usam esta tabela para avaliar a estratégia de compra de reservas e entender os custos de RDS em um cenário normalizado.
+      
+      **Processo:** A tabela une dois fluxos de dados. Para instâncias Serverless e de Suporte Estendido, os custos são obtidos diretamente da fatura (`intermediate_aws_cost_usage_report`). Para instâncias provisionadas, o modelo busca o preço On-Demand em `stg_aws_rds_prices` e o define como `total_cost`, ignorando o custo real. A `opportunity_savings` é calculada como a diferença entre o preço On-Demand e o de uma reserva de 1 ano.
+      
+      **Recorrência de atualização:** Diária.
+
+    tags: [silver, will, custos_cloud, rds]
+
+    columns:
+      - name: start_date
+        description: "Data de referência do custo. Originada de `aws_rds_instances_details`."
+      - name: account_id
+        description: "ID da conta da AWS. Copiado diretamente da coluna `account_id` da tabela `aws_rds_instances_details`."
+      - name: account_name
+        description: "Nome da conta da AWS. Copiado diretamente da coluna `account_name` da tabela `aws_rds_instances_details`."
+      - name: region
+        description: "Região da AWS da instância. Copiado diretamente da coluna `region` da tabela `aws_rds_instances_details`."
+      - name: circle_id
+        description: "ID do Círculo de custo. Copiado diretamente da coluna `circle_id` da tabela `aws_rds_instances_details`."
+      - name: tag_repository
+        description: "Valor da tag 'repository'. Copiado diretamente da coluna `tag_repository` da tabela `aws_rds_instances_details`."
+      - name: tag_product
+        description: "Valor da tag 'product'. Copiado diretamente da coluna `tag_product` da tabela `aws_rds_instances_details`."
+      - name: tag_management
+        description: "Valor da tag 'management'. Copiado diretamente da coluna `tag_management` da tabela `aws_rds_instances_details`."
+      - name: instance_name
+        description: "Nome da instância RDS. Copiado diretamente da coluna `instance_name` da tabela `aws_rds_instances_details`."
+      - name: resource_id
+        description: "ID único do recurso na AWS. Copiado diretamente da coluna `resource_id` da tabela `aws_rds_instances_details`."
+      - name: instance_size
+        description: "Tamanho da instância. Copiado diretamente da coluna `instance_size` da tabela `aws_rds_instances_details`."
+      - name: instance_commited
+        description: "Indica se a instância está comprometida com uma reserva. Copiado diretamente da coluna `instance_commited` da tabela `aws_rds_instances_details`."
+      - name: multiply_commited
+        description: "Fator de multiplicação para instâncias comprometidas. Copiado diretamente da coluna `multiply_commited` da tabela `aws_rds_instances_details`."
+      - name: eligible_commit
+        description: "Indica se a instância é elegível para reserva. Copiado diretamente da coluna `eligible_commit` da tabela `aws_rds_instances_details`."
+      - name: engine
+        description: "Motor de banco de dados da instância. Copiado diretamente da coluna `engine` da tabela `aws_rds_instances_details`."
+      - name: multi_az
+        description: "Indica se a instância é Multi-AZ. Copiado diretamente da coluna `multi_az` da tabela `aws_rds_instances_details`."
+      - name: storage
+        description: "Tipo de armazenamento da instância. Copiado diretamente da coluna `storage` da tabela `aws_rds_instances_details`."
+      - name: usage_type
+        description: "Classificação do tipo de uso. Pode ser 'Usage', 'Extended Support' ou 'Usage' (para Serverless). Derivado de `intermediate_aws_cost_usage_report`."
+      - name: vcpu
+        description: "Quantidade de vCPUs da instância. Obtido de `stg_aws_rds_prices`. Nulo para Serverless ou Suporte Estendido."
+      - name: memory
+        description: "Quantidade de memória (GiB) da instância. Obtido de `stg_aws_rds_prices`. Nulo para Serverless ou Suporte Estendido."
+      - name: opportunity_savings
+        description: "A economia **potencial** que seria obtida se a instância provisionada fosse coberta por uma reserva. Calculado como (`ondemand_cost` - `reserved_cost`) a partir de `stg_aws_rds_prices`. É 0 para outros tipos de uso."
+      - name: total_cost
+        description: "Custo total diário agregado. **Atenção:** Para instâncias provisionadas, este campo **não reflete o custo real**, mas sim o custo teórico On-Demand obtido de `stg_aws_rds_prices`. Para Serverless e Suporte Estendido, representa o custo real da fatura."

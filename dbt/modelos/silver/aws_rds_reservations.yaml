@@ -1,0 +1,57 @@
+version: 2
+
+models:
+  - name: aws_rds_reservations
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Criar uma visão consolidada e enriquecida das Reservas de Instâncias (RIs) de RDS, servindo como a fonte da verdade para todos os custos e metadados de reservas.
+      
+      **Escopo:** Inclui apenas Reservas de Instâncias de RDS da conta '887592687927' a partir do ano de 2025, especificamente para tipos de uso que contenham 'HeavyUsage:db.%'. A junção com a fonte de negócio (`rivery`) garante que apenas reservas com metadados de negócio correspondentes sejam processadas.
+      
+      **Audiência:** Analistas de FinOps e Engenheiros de Capacidade.
+      
+      **Processo:** O modelo unifica dados de duas fontes: `stg_aws_cost_usage_report` para os dados financeiros e `aux_rds_reservations` para os metadados de negócio (como `circle_id` e `engine`). Um `LEFT JOIN` com `reservation_id` enriquece os dados financeiros. O custo e as horas da reserva são recalculados para refletir a quantidade correta de instâncias cobertas.
+      
+      **Recorrência de atualização:** Diária.
+
+    tags: [silver, will, custos_cloud, rds, reservations]
+
+    columns:
+      - name: start_date
+        description: "Data de início do período de faturamento para o custo da reserva. Fonte: AWS CUR."
+      - name: reservation_start_time
+        description: "Data de início do contrato da reserva. Fonte: AWS CUR."
+      - name: reservation_end_time
+        description: "Data de término do contrato da reserva. Fonte: Rivery."
+      - name: reservation_id
+        description: "ID único da reserva, usado como chave de junção entre as fontes financeira e de negócio."
+      - name: engine
+        description: "Motor de banco de dados da reserva (ex. 'PostgreSQL'). Enriquecido a partir da fonte de negócio (Rivery)."
+      - name: multi_az
+        description: "Indicador booleano (`true`/`false`) se a reserva é para uma configuração Multi-AZ. Enriquecido a partir da fonte de negócio (Rivery)."
+      - name: region
+        description: "Região da AWS onde a reserva é válida. Fonte: AWS CUR."
+      - name: circle_id
+        description: "ID do Círculo (time) proprietário da reserva. Este é um dos principais campos de enriquecimento, vindo da fonte de negócio (Rivery)."
+      - name: reservations
+        description: "Quantidade de instâncias cobertas por este contrato de reserva. Fonte: Rivery."
+      - name: instance_commited
+        description: "O tipo e tamanho da instância para o qual a reserva é comprometida (ex. 'db.t4g.medium'). Fonte: AWS CUR."
+      - name: contract_length
+        description: "Duração do contrato da reserva (ex. '1yr'). Fonte: AWS CUR."
+      - name: offering_class
+        description: "Classe de oferta da reserva (ex. 'standard'). Fonte: AWS CUR."
+      - name: contract_purchase
+        description: "Opção de compra do contrato (ex. 'No Upfront'). Fonte: AWS CUR."
+      - name: reservation_hours
+        description: "Total de horas de reserva contratadas. É calculado multiplicando as horas de reserva da fatura AWS pelo número de reservas registradas na fonte de negócio (`aux_rds_reservations`) para obter o total de horas efetivamente contratadas."
+      - name: reservation_cost
+        description: "Custo total da reserva para o período, ajustado para precisão. O custo da fatura (`unblended_cost`) é rateado pela quantidade de reservas na fatura e depois multiplicado pela quantidade de reservas da fonte de negócio (`aux_rds_reservations`) para garantir que o custo corresponda exatamente ao escopo de negócio."

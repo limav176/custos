@@ -1,0 +1,41 @@
+version: 2
+
+models:
+  - name: datadog_costs
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Consolidar, processar e atribuir os custos mensais do Datadog a um time (`circle_id`) específico. Este modelo serve como a tabela central e enriquecida para todos os custos da plataforma Datadog na camada Silver, sendo a fonte para as subsequentes categorizações de custos.
+      **Escopo:** Inclui custos com valor maior que zero (`cost > 0.0`) e exclui tipos de faturamento 'total' e tipos de família de produtos que terminam com `_cost_sum`. O escopo cobre a atribuição de custos a `circle_id` com base em uma hierarquia de fontes.
+      **Audiência:** Engenheiros de Dados e Analistas de FinOps. Esta tabela é a principal fonte para modelos de custos subsequentes.
+      **Processo:** O modelo atribui um `circle_id` a cada custo bruto da fonte `stg_datadog_cost_attribution`. A atribuição segue uma hierarquia, priorizando `stg_labels_kubernetes_report` sobre `aux_datadog_service_circle`, com um valor padrão para custos não mapeados. Em seguida, enriquece os dados com o `circle_type` da tabela `holaspirit_circles` e o `product_group` da `aux_datadog_product`.
+      **Recorrência de atualização:** Mensal.
+
+    tags: [silver, will, custos_cloud, datadog]
+
+    columns:
+      - name: start_date
+        description: "Data de início do mês de referência do custo, truncada a partir do campo `month` da fonte. Lógica: `DATE_TRUNC('month', CAST(ad.month AS TIMESTAMP))`."
+      - name: service
+        description: "Nome do serviço do Datadog ao qual o custo está associado, derivado do campo `tags_service` da fonte."
+      - name: circle_id
+        description: "ID do Círculo (time) atribuído ao custo. A atribuição segue a hierarquia: `stg_labels_kubernetes_report` (prioridade 1), `aux_datadog_service_circle` (prioridade 2), ou 'Não Tagueado' (fallback). O valor é validado contra a tabela `holaspirit_circles`."
+      - name: circle_type
+        description: "Tipo do Círculo (ex. 'stream_aligned', 'platform'), obtido pelo `JOIN` com `holaspirit_circles`. Assume um valor padrão se o `circle_id` não for encontrado."
+      - name: product_name
+        description: "Nome do produto ou família de produtos do Datadog que gerou o custo. Fonte: `family_type` da tabela `stg_datadog_cost_attribution`."
+      - name: product_group
+        description: "Agrupamento de produtos do Datadog (ex. 'infra', 'apm'), enriquecido a partir da tabela de mapeamento `aux_datadog_product`. Assume 'others' se não houver um mapeamento correspondente."
+      - name: billing_type
+        description: "Tipo de faturamento do custo (ex. 'on_demand', 'committed'). Fonte: `stg_datadog_cost_attribution`."
+      - name: invoice_status
+        description: "Status da fatura associada ao custo (ex. 'estimated', 'closed'). Fonte: `stg_datadog_cost_attribution`."
+      - name: cost
+        description: "Valor do custo atribuído, em dólares. Fonte: `stg_datadog_cost_attribution`."

@@ -1,0 +1,55 @@
+version: 2
+
+models:
+  - name: aws_rds_waste_index
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Funciona como um motor de recomendação FinOps, projetado para identificar, quantificar e fornecer ações corretivas para o desperdício financeiro em instâncias do Amazon RDS. O modelo calcula um `waste_index` diário, estima o `waste_cost` e gera recomendações de otimização acionáveis.
+      
+      **Escopo:** A análise abrange métricas de performance e custo dos últimos 30 dias, excluindo o dia atual. As recomendações são baseadas no 95º percentil do índice de desperdício dos últimos 8 dias para garantir que as ações sejam tomadas sobre padrões consistentes, e não anomalias. A análise de custo foca em instâncias com `total_cost` > 0.
+      
+      **Audiência:** Engenheiros de Círculos e Analistas de FinOps. É a principal ferramenta para otimização proativa de custos de RDS.
+
+      **Processo:** O modelo identifica três tipos de desperdício: instâncias sem conexões, subutilização de CPU e custos com Suporte Estendido, cada um gerando um `waste_index` parcial. A CTE `waste_index_p95` calcula o 95º percentil desses índices nos últimos 8 dias. Com base nesses dados crônicos, a CTE `ordered_recommendation` gera e prioriza recomendações textuais, que são então agregadas. O `waste_cost` final é calculado multiplicando o `total_cost` pelo `waste_index` agregado (p95).
+      
+      **Recorrência de atualização:** Diária.
+
+    tags: [silver, will, custos_cloud, rds, waste_index]
+
+    columns:
+      - name: start_date
+        description: A data de referência diária para a qual as métricas e custos foram analisados.
+      - name: account_id
+        description: O ID da conta da AWS onde a instância RDS está localizada.
+      - name: account_name
+        description: O nome legível da conta AWS, obtido a partir da tabela `aws_account_names`.
+      - name: environment
+        description: O ambiente da instância (ex. 'production', 'development'), inferido a partir do nome da conta ou da região AWS.
+      - name: region
+        description: A região da AWS (ex. 'us-east-1') onde a instância está provisionada.
+      - name: circle_id
+        description: O ID do círculo de custo responsável pela instância, herdado do modelo `aws_rds_costs_by_sdk`.
+      - name: aws_product_name
+        description: O nome do serviço da AWS, fixado como 'Amazon Relational Database Service'.
+      - name: instance_name
+        description: O nome da instância RDS, conforme definido na AWS.
+      - name: resource_id
+        description: O identificador único do recurso (DBI) da instância RDS na AWS.
+      - name: instance_size
+        description: O tipo e tamanho da instância (ex. 'db.t3.medium', 'db.r7g.large').
+      - name: recommendation
+        description: "Recomendação de otimização em linguagem natural, gerada pelo motor de regras. É o resultado de uma análise do desperdício crônico (P95 de 8 dias). Pode conter múltiplas ações, priorizadas e concatenadas (ex. 'Shutdown or terminate the instance, as it has had no connections - Update the engine version due to Extended Support')."
+      - name: waste_index
+        description: "O 95º percentil do índice de desperdício agregado para a instância, calculado sobre os últimos 8 dias. Representa a porcentagem do custo da instância que é considerado um desperdício crônico e, portanto, otimizável. Um valor de 0.25 indica que 25% do custo é consistentemente desperdiçado."
+      - name: waste_cost
+        description: "O valor financeiro diário estimado do desperdício, calculado como `total_cost * waste_index`. Representa a economia potencial diária que pode ser alcançada ao seguir a recomendação gerada."
+      - name: total_cost
+        description: O custo total diário da instância RDS, que serve como base para o cálculo do `waste_cost` e para contextualizar a magnitude do desperdício.

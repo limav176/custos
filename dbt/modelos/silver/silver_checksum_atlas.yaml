@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: silver_checksum_atlas
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Garantir a integridade financeira e a consistência do pipeline de dados de custos do MongoDB Atlas, validando se os totais de custo permanecem os mesmos através das camadas.
+      **Escopo:** Agrega e compara os totais de custo de pontos-chave do pipeline: `stg_checksum_atlas` (Bronze), `stg_mongodb_atlas_cost_usage_report` (Staging), `silver_mongodb_atlas_cost_usage_report` (Silver) e a soma das tabelas de consumo final (`mongodb_atlas_costs_usage` e `mongodb_atlas_costs_support`).
+      **Audiência:** Exclusivamente Engenheiros de Dados. Esta tabela é usada para monitorar a saúde e a precisão do pipeline de ETL de custos do MongoDB Atlas.
+      **Processo:** O modelo agrega os custos de cada tabela fonte, agrupando por mês, `circle_id` e `sku`. Cada agregação recebe uma etiqueta na coluna `table_name` para identificar sua origem. Todos os resultados são unificados com `UNION ALL` para permitir a comparação direta dos valores de custo entre as diferentes etapas do pipeline.
+      **Recorrência de atualização:** Diária.
+
+    tags: [silver, will, custos_cloud, checksum]
+
+    columns:
+      - name: start_date
+        description: "O primeiro dia do mês de referência para a soma de controle, agrupado com `DATE_TRUNC`. Originado de todas as tabelas fonte."
+      - name: table_name
+        description: "A tabela ou camada de origem do cálculo de custo, atribuída como um valor literal em cada CTE para identificar o ponto de verificação no pipeline (ex. 'stg_mongodb_atlas_cost_usage_report')."
+      - name: circle_id
+        description: "O ID do círculo de custo ao qual a despesa foi atribuída na respectiva camada. Originado de todas as tabelas fonte."
+      - name: sku
+        description: "O SKU (Stock Keeping Unit) do item de linha de custo do MongoDB Atlas, usado como chave de agrupamento. Originado de todas as tabelas fonte."
+      - name: cost
+        description: "O custo total agregado para a combinação de chaves. Calculado como `SUM(cost)` ou `SUM(CAST(totalpricecents AS DECIMAL(10,2))) / 100`. Este valor deve ser idêntico entre as camadas para uma reconciliação bem-sucedida."

@@ -1,0 +1,70 @@
+version: 2
+
+models:
+  - name: aws_costs_support
+    description: |
+      **Propósito:** Isolar e apresentar exclusivamente os custos relacionados ao plano `AWS Support (Enterprise)`. A separação deste custo, que é compartilhado, é fundamental para o seu rateio adequado na camada Gold.
+      **Escopo:** Inclui apenas registros onde o `aws_product_name` é 'AWS Support (Enterprise)'. Custos de Marketplace e créditos específicos são explicitamente excluídos para garantir a consistência do universo de dados.
+      **Audiência:** Engenheiros de FinOps.
+      **Processo:** Os dados são derivados da tabela `silver_aws_cost_usage_report`. O modelo aplica um filtro para excluir custos de Marketplace e, em seguida, seleciona apenas os itens de linha correspondentes ao produto 'AWS Support (Enterprise)'.
+      **Recorrência de atualização:** Diária.
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    tags:
+      - "camada:silver"
+      - "dominio:custos_cloud"
+      - "provedor:aws"
+      - "tipo_de_custo:support"
+      - "logica:filtragem"
+      - "tabela_fonte:silver_aws_cost_usage_report"
+
+    columns:
+      - name: start_date
+        description: "Data de início do período de faturamento do custo de suporte."
+      - name: resource_id
+        description: "ID do recurso da AWS. Geralmente nulo para este tipo de custo."
+      - name: description
+        description: "Descrição do item de linha de faturamento, que neste caso se refere ao plano de suporte da AWS."
+      - name: billing_origin
+        description: "Origem da cobrança."
+      - name: aws_product_name
+        description: "Nome do produto da AWS. Conforme a lógica de filtragem, o valor nesta tabela será sempre 'AWS Support (Enterprise)'."
+      - name: circle_id
+        description: "ID do Círculo (time). Geralmente nulo para este tipo de custo, pois é uma despesa em nível de conta e não diretamente atribuível a um recurso."
+      - name: providedby_id
+        description: "ID do provedor do Círculo."
+      - name: tag_repository
+        description: "Tag de repositório. Não aplicável para este tipo de custo."
+      - name: tag_product
+        description: "Tag de produto. Não aplicável para este tipo de custo."
+      - name: tag_management
+        description: "Tag de gerenciamento. Não aplicável para este tipo de custo."
+      - name: tag_name
+        description: "Tag de nome (`Name`). Não aplicável para este tipo de custo."
+      - name: environment
+        description: "Ambiente. Não aplicável para este tipo de custo."
+      - name: usage_type
+        description: "Tipo de uso faturado para o suporte."
+      - name: engine
+        description: "Motor de banco de dados. Não aplicável para este tipo de custo."
+      - name: instance_type
+        description: "Tipo da instância. Não aplicável para este tipo de custo."
+      - name: pricing_term
+        description: "Termo de precificação para o serviço de suporte."
+      - name: account_id
+        description: "ID da conta da AWS."
+      - name: account_name
+        description: "Nome da conta da AWS."
+      - name: region
+        description: "Região da AWS."
+      - name: unblended_cost
+        description: "Custo bruto do serviço de suporte."
+      - name: reservation_cost
+        description: "Custo de reserva. Geralmente não aplicável para este tipo de custo."

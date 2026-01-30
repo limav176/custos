@@ -1,0 +1,73 @@
+version: 2
+
+models:
+  - name: silver_aws_eks_cost_usage_report
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Consolidar e enriquecer os dados de custo e uso do Amazon EKS, atuando como a principal fonte da verdade para custos de Kubernetes na camada Silver. Sua função central é atribuir cada linha de custo a um `circle_id` (time) para permitir análises de negócio detalhadas.
+      **Escopo:** Inclui todos os custos de uso de EKS provenientes da tabela `stg_aws_eks_cost_usage_report`.
+      **Audiência:** Engenheiros de Dados e Analistas de FinOps.
+      **Processo:** O modelo enriquece os dados brutos de custo do EKS, fazendo join com diversas fontes (`aws_account_names`, `aux_aws_resource_id_tags`, `aux_aws_account_circle`, `aux_eks_namespace_circle`, `labels_kubernetes_report`). A atribuição de `circle_id` ao `namespace` segue uma hierarquia de 3 regras de negócio via `COALESCE`: 1º `labels_kubernetes_report`, 2º `aux_aws_account_circle`, 3º `aux_eks_namespace_circle`. Se nenhuma falhar, o custo é marcado como não tagueado. Também calcula a conformidade de tagueamento e determina o ambiente com base no nome da conta ou região.
+      **Recorrência de atualização:** Diária.
+
+    tags: [silver, will, custos_cloud]
+
+    columns:
+      - name: start_date
+        description: "Data de início do período de faturamento do custo. Fonte: `stg_aws_eks_cost_usage_report`."
+      - name: environment
+        description: "Ambiente do recurso ('production' ou 'development'), derivado do `account_name` (se contiver 'prod' ou 'dev') ou da `region`."
+      - name: account_id
+        description: "ID da conta AWS onde o custo foi incorrido. Fonte: `stg_aws_eks_cost_usage_report`."
+      - name: account_name
+        description: "Nome da conta AWS, obtido via JOIN com `aws_account_names`."
+      - name: region
+        description: "Região da AWS onde o recurso está localizado. Fonte: `stg_aws_eks_cost_usage_report`."
+      - name: resource_id
+        description: "ID único do recurso EKS (ex. pod, nó) que gerou o custo. Fonte: `stg_aws_eks_cost_usage_report`."
+      - name: parent_resource_id
+        description: "ID do recurso pai, geralmente a instância EC2 que hospeda o nó do EKS. Fonte: `stg_aws_eks_cost_usage_report`."
+      - name: parent_tag_product
+        description: "A tag 'product' associada ao `parent_resource_id` (o nó EC2). Fonte: `aux_aws_resource_id_tags`."
+      - name: parent_tag_repository
+        description: "A tag 'repository' associada ao `parent_resource_id` (o nó EC2). Fonte: `aux_aws_resource_id_tags`."
+      - name: parent_tag_circle_id
+        description: "A tag 'circle_id' associada ao `parent_resource_id` (o nó EC2). Fonte: `aux_aws_resource_id_tags`."
+      - name: parent_provided_by_id
+        description: "A tag 'providedby_id' associada ao `parent_resource_id` (o nó EC2). Fonte: `aux_aws_resource_id_tags`."
+      - name: parent_tag_management
+        description: "A tag 'management' associada ao `parent_resource_id` (o nó EC2). Fonte: `aux_aws_resource_id_tags`."
+      - name: parent_tag_name
+        description: "A tag 'name' associada ao `parent_resource_id` (o nó EC2). Fonte: `aux_aws_resource_id_tags`."
+      - name: billing_origin
+        description: "Indica a origem da linha de faturamento. Fonte: `stg_aws_eks_cost_usage_report`."
+      - name: circle_id
+        description: "O `circle_id` final atribuído via `COALESCE`, com a seguinte precedência: 1º `labels_kubernetes_report`, 2º `aux_aws_account_circle`, 3º `aux_eks_namespace_circle`."
+      - name: tag_policy_compliant
+        description: "Indicador booleano (`true`/`false`) que determina se o `circle_id` foi encontrado na fonte de maior precedência (`labels_kubernetes_report`)."
+      - name: tag_policy_compliant_actual
+        description: "Duplicação da coluna `tag_policy_compliant`."
+      - name: usage_type
+        description: "Descreve o tipo de uso que gerou o custo (ex. 'DataTransfer', 'BoxUsage'). Fonte: `stg_aws_eks_cost_usage_report`."
+      - name: pricing_term
+        description: "Termo de precificação aplicado (ex. 'OnDemand', 'Reserved'). Fonte: `stg_aws_eks_cost_usage_report`."
+      - name: aws_product_name
+        description: "Nome do produto AWS ao qual o custo se refere (neste caso, Amazon EKS). Fonte: `stg_aws_eks_cost_usage_report`."
+      - name: cluster_arn
+        description: "ARN (Amazon Resource Name) completo do cluster EKS. Fonte: `stg_aws_eks_cost_usage_report`."
+      - name: cluster_name
+        description: "Nome do cluster EKS. Fonte: `stg_aws_eks_cost_usage_report`."
+      - name: namespace
+        description: "Namespace do Kubernetes onde o custo foi gerado. Fonte: `stg_aws_eks_cost_usage_report`."
+      - name: split_cost
+        description: "Custo rateado ou alocado para este recurso específico, provavelmente originado de uma ferramenta como Kubecost. Fonte: `stg_aws_eks_cost_usage_report`."
+      - name: unused_cost
+        description: "Fração do custo do recurso que não foi utilizada, provavelmente originado de uma ferramenta como Kubecost. Fonte: `stg_aws_eks_cost_usage_report`."

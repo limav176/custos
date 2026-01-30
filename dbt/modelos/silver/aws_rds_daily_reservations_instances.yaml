@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: aws_rds_daily_reservations_instances
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Realizar uma análise diária da cobertura de Reservas de Instâncias (RIs) para o Amazon RDS. Este modelo cria um inventário diário que compara o número de instâncias ativas com o número de reservas disponíveis, sendo crucial para identificar oportunidades de economia e desperdício.
+      
+      **Escopo:** Inclui instâncias RDS ativas e elegíveis para reserva a partir do ano de 2025, excluindo motores 'oracle-ee' e instâncias 'db.serverless'. As reservas consideradas também são a partir de 2025. O modelo foca em instâncias onde `status = TRUE` e `eligible_commit = TRUE`.
+      
+      **Audiência:** Engenheiros de FinOps, Analistas de Capacidade e gestores de infraestrutura.
+      
+      **Processo:** O modelo executa uma comparação em três etapas: 1. Conta as instâncias ativas por dia a partir de `aws_rds_instances_details`. 2. Expande os contratos de reserva de `aws_rds_reservations` em registros diários para criar um inventário de reservas por dia. 3. Realiza um `FULL OUTER JOIN` entre instâncias e reservas para calcular a coluna `without_reservations`, que mostra o balanço da cobertura.
+      
+      **Recorrência de atualização:** Diária.
+
+    tags: [silver, will, custos_cloud, rds, reservations]
+
+    columns:
+      - name: start_date
+        description: "A data de referência para a contagem diária de instâncias e reservas, servindo como a principal chave de junção."
+      - name: aws_product_name
+        description: "Nome do produto da AWS, fixado como 'Amazon Relational Database Service'."
+      - name: region
+        description: "Região da AWS onde as instâncias e reservas estão localizadas. Parte da chave de junção."
+      - name: engine
+        description: "Motor de banco de dados (ex. 'postgresql') ao qual as instâncias e reservas se referem. Parte da chave de junção."
+      - name: multi_az
+        description: "Indicador se a configuração da instância e da reserva é Multi-AZ. Parte da chave de junção."
+      - name: instance_commited
+        description: "O tipo e tamanho da instância (ex. 'db.t3.medium'). É a chave de junção principal para garantir a correspondência correta entre instância e reserva."
+      - name: circle_id
+        description: "ID do Círculo (time) associado à instância ou reserva. Parte da chave de junção."
+      - name: instances
+        description: "A contagem de instâncias RDS ativas e elegíveis para reserva para a combinação de dimensões no dia especificado. Fonte: `aws_rds_instances_details`."
+      - name: reservations
+        description: "A contagem de reservas de instâncias RDS ativas e disponíveis para a combinação de dimensões no dia especificado. Fonte: `aws_rds_reservations`."
+      - name: without_reservations
+        description: "O balanço entre instâncias e reservas (`instances - reservations`). Um valor > 0 indica instâncias sem cobertura (oportunidade de economia); < 0 indica reservas ociosas (desperdício); 0 indica cobertura ideal." 

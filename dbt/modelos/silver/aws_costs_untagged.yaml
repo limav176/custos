@@ -1,0 +1,76 @@
+version: 2
+
+models:
+  - name: aws_costs_untagged
+    description: |
+      **Propósito:** Isolar e agregar todos os custos de uso da AWS que não puderam ser atribuídos a um `circle_id`, funcionando como a tabela de custos "não tagueados" ou "órfãos" para expor gastos que precisam de investigação.
+      **Escopo:** Inclui todos os custos que restam após a exclusão em cascata das categorias: Marketplace, Support, Shared e Usage (custos com `circle_id` válido). A condição final `COALESCE(aws.circle_id, ...) = '...'` garante que apenas custos sem um `circle_id` sejam selecionados.
+      **Audiência:** Engenheiros de FinOps e Tech Leads responsáveis pela governança de custos e melhoria do tagueamento.
+      **Processo:** Os dados são derivados de `silver_aws_cost_usage_report` e enriquecidos com `holaspirit_circles`. O modelo aplica uma série de exclusões (`NOT IN`) para remover todos os custos já classificados. A transformação chave é a atribuição de um `circle_id` fixo ('9999...') para sinalizar explicitamente o estado de não-atribuição.
+      **Recorrência de atualização:** Diária.
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    tags:
+      - "camada:silver"
+      - "dominio:custos_cloud"
+      - "provedor:aws"
+      - "tipo_de_custo:untagged"
+      - "logica:filtragem"
+      - "tabela_fonte:silver_aws_cost_usage_report"
+
+    columns:
+      - name: start_date
+        description: "Data de início do período de uso do custo."
+      - name: resource_id
+        description: "ID do recurso da AWS não atribuído a um time."
+      - name: description
+        description: "Descrição do item de linha de faturamento."
+      - name: billing_origin
+        description: "Origem da cobrança."
+      - name: aws_product_name
+        description: "Nome do produto da AWS."
+      - name: circle_id
+        description: "ID do Círculo (time). Conforme a lógica do modelo, este campo é fixado com o valor padrão '999999999999999999999999' para indicar um custo não atribuído."
+      - name: providedby_id
+        description: "ID do provedor do Círculo. Copiado diretamente da coluna `providedby_id` da tabela `silver_aws_cost_usage_report`."
+      - name: circle_type
+        description: "Tipo do Círculo. Este campo será sempre nulo, pois a lógica desta tabela seleciona apenas custos que não puderam ser associados a um Círculo e, portanto, o `JOIN` com `holaspirit_circles` não encontra correspondência."
+      - name: tag_repository
+        description: "Tag de repositório associada ao recurso. Copiado diretamente da coluna `tag_repository` da tabela `silver_aws_cost_usage_report`."
+      - name: tag_product
+        description: "Tag de produto associada ao recurso. Copiado diretamente da coluna `tag_product` da tabela `silver_aws_cost_usage_report`."
+      - name: tag_management
+        description: "Tag de gerenciamento associada ao recurso. Copiado diretamente da coluna `tag_management` da tabela `silver_aws_cost_usage_report`."
+      - name: tag_name
+        description: "Tag de nome (`Name`) associada ao recurso. Copiado diretamente da coluna `tag_name` da tabela `silver_aws_cost_usage_report`."
+      - name: tag_policy_compliant
+        description: "Indica se o recurso está em conformidade com a política de tagueamento. Copiado diretamente da coluna `tag_policy_compliant` da tabela `silver_aws_cost_usage_report`."
+      - name: tag_policy_compliant_actual
+        description: "Indica a conformidade de tagueamento no momento do uso. Copiado diretamente da coluna `tag_policy_compliant_actual` da tabela `silver_aws_cost_usage_report`."
+      - name: environment
+        description: "Ambiente ao qual o recurso pertence. Copiado diretamente da coluna `environment` da tabela `silver_aws_cost_usage_report`."
+      - name: usage_type
+        description: "Tipo de uso do recurso faturado. Copiado diretamente da coluna `usage_type` da tabela `silver_aws_cost_usage_report`."
+      - name: engine
+        description: "Motor de banco de dados, se aplicável. Copiado diretamente da coluna `engine` da tabela `silver_aws_cost_usage_report`."
+      - name: instance_type
+        description: "Tipo da instância de computação. Copiado diretamente da coluna `instance_type` da tabela `silver_aws_cost_usage_report`."
+      - name: pricing_term
+        description: "Termo de precificação. Copiado diretamente da coluna `pricing_term` da tabela `silver_aws_cost_usage_report`."
+      - name: account_id
+        description: "ID da conta da AWS. Copiado diretamente da coluna `account_id` da tabela `silver_aws_cost_usage_report`."
+      - name: account_name
+        description: "Nome da conta da AWS. Copiado diretamente da coluna `account_name` da tabela `silver_aws_cost_usage_report`."
+      - name: region
+        description: "Região da AWS. Copiado diretamente da coluna `region` da tabela `silver_aws_cost_usage_report`."
+      - name: unblended_cost
+        description: "Custo bruto do recurso não atribuído. Copiado diretamente da coluna `unblended_cost` da tabela `silver_aws_cost_usage_report`."
+      - name: reservation_cost
+        description: "Custo associado a instâncias reservadas. Copiado diretamente da coluna `reservation_cost` da tabela `silver_aws_cost_usage_report`."

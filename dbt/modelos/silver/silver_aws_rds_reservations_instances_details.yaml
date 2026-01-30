@@ -1,0 +1,55 @@
+version: 2
+
+models:
+  - name: silver_aws_rds_reservations_instances_details
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Atuar como um motor de recomendação para a otimização de custos de instâncias RDS, gerando um diagnóstico detalhado e uma recomendação acionável para cada `resource_id`.
+      **Escopo:** Inclui instâncias RDS (exceto `db.serverless` e `oracle-ee`) da tabela `aws_rds_costs_by_sdk` e dados de desperdício de `aws_rds_waste_index` dos últimos 8 dias. A análise de atividade mensal considera os últimos 15 dias do mês anterior para determinar se uma instância é considerada 'ativa'.
+      **Audiência:** Engenheiros de Dados e de Plataforma responsáveis pela otimização de recursos de banco de dados.
+      **Processo:** O modelo determina se uma instância esteve 'ativa' o suficiente para justificar uma reserva. Em seguida, calcula horas de uso normalizadas para permitir comparações. A lógica final é uma árvore de decisão (`CASE WHEN`) que constrói uma recomendação combinando a análise de `rightsizing` do `aws_rds_waste_index` com regras de negócio baseadas na elegibilidade para reserva, status de atividade, motor e família da instância.
+      **Recorrência de atualização:** Diária.
+
+    tags: [silver, will, custos_cloud, rds]
+
+    columns:
+      - name: month
+        description: "Mês de referência para a análise da instância."
+      - name: account_name
+        description: "Nome da conta AWS onde a instância está localizada. Fonte: `aws_rds_costs_by_sdk`."
+      - name: region
+        description: "Região da AWS onde a instância está localizada. Fonte: `aws_rds_costs_by_sdk`."
+      - name: circle_id
+        description: "ID do Círculo (time) associado à instância. Fonte: `aws_rds_costs_by_sdk`."
+      - name: active
+        description: "Indicador booleano (`true`/`false`) que determina se a instância atendeu ao critério de 'ativa' (ligada 24h por dia por pelo menos 15 dias no mês)."
+      - name: eligible_commit
+        description: "Indicador booleano (`true`/`false`) que verifica se a combinação de instância/região/engine é elegível para o programa de reservas. Fonte: `aws_rds_costs_by_sdk`."
+      - name: resource_id
+        description: "O ID único da instância RDS sendo analisada. É a chave principal da tabela."
+      - name: instance_name
+        description: "O nome da instância RDS. Fonte: `aws_rds_costs_by_sdk`."
+      - name: engine
+        description: "Motor de banco de dados da instância (ex. 'postgresql'). Fonte: `aws_rds_costs_by_sdk`."
+      - name: instance_size
+        description: "O tipo de instância atual (ex. 'db.t3.medium'). Fonte: `aws_rds_costs_by_sdk`."
+      - name: instance_commited
+        description: "O tipo de instância normalizado para comparação com o catálogo de reservas. Fonte: `aws_rds_costs_by_sdk`."
+      - name: instance_hours
+        description: "Total de horas que a instância esteve em execução durante o mês, calculado a partir da contagem de registros horários."
+      - name: instance_hours_normalized
+        description: "Horas de uso padronizadas (`instance_hours` * `multiply_commited`), que permitem comparar o 'peso' de uso entre instâncias de diferentes tamanhos."
+      - name: instance_amount_normalized
+        description: "O fator de normalização médio (`multiply_commited`) para a instância no mês, representando seu 'peso' relativo."
+      - name: recommendation
+        description: "A recomendação final em linguagem natural gerada pelo motor de regras, combinando os dados de `waste_index`, `active` e `eligible_commit`."
+      - name: waste_index
+        description: "Índice (de 0 a 1) que quantifica o desperdício financeiro da instância devido a superdimensionamento. Fonte: `aws_rds_waste_index`."

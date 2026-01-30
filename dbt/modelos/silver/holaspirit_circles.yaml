@@ -1,0 +1,34 @@
+version: 2
+
+models:
+  - name: holaspirit_circles
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:**
+      Servir como a tabela de dimensão canônica para a estrutura organizacional de 'círculos' (times). Este modelo constrói uma visão mestre da hierarquia de times, tratando as complexidades do ciclo de vida dos círculos, como extinções e reorganizações, para garantir a consistência histórica na atribuição de custos.
+      **Escopo:** Inclui todos os círculos ativos do Holaspirit, círculos personalizados (ex. 'Not Tagged') e mapeamentos de círculos inativos para seus sucessores. Exclui um conjunto específico de IDs de círculos relacionados a 'Finance' que são filtrados na fonte.
+      **Audiência:** Engenheiros de Dados e Analistas de FinOps. É a dimensão central para todos os modelos de custos, usada para atribuir propriedade e executar a lógica de rateio.
+      **Processo:** Consolida dados de `aux_circle_id` com mapeamentos manuais de círculos inativos (`dead_circle`) e customizados (`custom_circle`). Constrói uma árvore hierárquica por meio de self-joins para identificar o ancestral raiz de cada círculo. Classifica cada círculo como 'platform' ou 'stream_aligned' com base no nome do seu círculo ancestral.
+      **Recorrência de atualização:** Diária.
+
+    tags: [silver, will, custos_cloud, holaspirit, dimension]
+
+    columns:
+      - name: circle_id
+        description: "O ID único do círculo, originado do Holaspirit ou definido manualmente na CTE `custom_circle`. É a chave primária da tabela."
+      - name: circle_name
+        description: "O nome oficial e atual do círculo."
+      - name: parent_circle_id
+        description: "O ID do círculo pai direto na hierarquia. Para círculos que foram movidos, este campo é sobrescrito pela CTE `dead_circle` para apontar para o novo pai."
+      - name: n1_circle_name
+        description: "O nome do círculo no topo da hierarquia de um time (a 'tribo' ou o ancestral mais alto abaixo da organização 'will')."
+      - name: type
+        description: "Classifica o círculo para a lógica de rateio de custos. Retorna 'platform' para os círculos 'Platform Engineering', 'Not Tagged', 'Ciência de Dados' e 'Tech Platforms'; caso contrário, retorna 'stream_aligned'."

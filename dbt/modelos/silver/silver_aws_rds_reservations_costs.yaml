@@ -1,0 +1,61 @@
+version: 2
+
+models:
+  - name: silver_aws_rds_reservations_costs
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Fornecer uma visão gerencial e agregada da estratégia de Reservas de Instâncias (RIs) de RDS, comparando o uso real com as reservas adquiridas para calcular custos, economias e gerar recomendações de otimização.
+      **Escopo:** Inclui dados de uso de instâncias RDS (exceto `db.serverless` e `oracle-ee`) da tabela `aws_rds_costs_by_sdk` e dados de reservas de `aws_rds_reservations`. A análise de atividade considera os últimos 15 dias do mês anterior para estabilidade.
+      **Audiência:** Engenheiros de Dados e Analistas de FinOps.
+      **Processo:** O modelo cruza dados de uso (`aws_rds_costs_by_sdk`) e reservas (`aws_rds_reservations`) após classificar instâncias como ativas ou inativas. Um `FULL OUTER JOIN` na CTE `cost` reconcilia os custos para calcular o custo On-Demand excedente, o custo fixo da reserva, a economia real (`savings`) e a economia potencial perdida (`opportunity_savings`). A CTE `final` gera recomendações com base na cobertura de reservas.
+      **Recorrência de atualização:** Diária.
+
+    tags: [silver, will, custos_cloud, rds]
+
+    columns:
+      - name: month
+        description: "Mês de referência para a análise, servindo como a principal chave de agregação temporal."
+      - name: region
+        description: "Região da AWS onde a instância ou reserva está localizada."
+      - name: circle_id
+        description: "ID do Círculo (time) associado à instância ou reserva."
+      - name: engine
+        description: "Motor de banco de dados da instância RDS (ex. 'postgresql')."
+      - name: instance_commited
+        description: "Tipo de instância (ex. 'db.r6g.large') para o qual a reserva ou o uso se aplica."
+      - name: eligible_commit
+        description: "Indicador booleano se a combinação de instância/região/engine é elegível para o programa de reservas."
+      - name: instances
+        description: "O número médio de instâncias (ativas e inativas) em execução durante o mês."
+      - name: instances_inactives
+        description: "O número de instâncias que não atenderam ao critério de 'ativa' (ligada 24h/dia por menos de 15 dias no mês)."
+      - name: instances_actives
+        description: "O número de instâncias que atenderam ao critério de 'ativa' (ligada 24h/dia por pelo menos 15 dias no mês)."
+      - name: reservations
+        description: "O número de reservas compradas para esta combinação de atributos. Fonte: `aws_rds_reservations`."
+      - name: instance_hours
+        description: "O total de horas de uso de todas as instâncias (ativas e inativas) no mês. Fonte: `aws_rds_costs_by_sdk`."
+      - name: reservation_hours
+        description: "O total de horas contratadas através de reservas no mês. Fonte: `aws_rds_reservations`."
+      - name: ondemand_hours
+        description: "As horas de uso que excederam as horas de reserva (`instance_hours` - `reservation_hours`)."
+      - name: reservation_cost
+        description: "O custo total pago pelas reservas no mês. Fonte: `aws_rds_reservations`."
+      - name: ondemand_cost
+        description: "O custo estimado das `ondemand_hours`, calculado pro-rata com base no custo on-demand total."
+      - name: savings
+        description: "A economia real gerada pelas reservas, calculada como: (Custo On-Demand das horas cobertas) - (Custo da Reserva)."
+      - name: opportunity_savings
+        description: "A economia potencial que foi perdida nas horas de instâncias ativas que não foram cobertas por reservas."
+      - name: recommendation
+        description: "A recomendação de alto nível gerada pelo motor de regras, sugerindo ações sobre um grupo de instâncias."
+      - name: total_cost
+        description: "O custo total consolidado para este grupo de instâncias, calculado como `reservation_cost` + `ondemand_cost`."

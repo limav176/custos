@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: silver_checksum_eks
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Atuar como uma tabela de validação (`checksum`) para o pipeline de custos do Amazon EKS na camada Silver, garantindo a integridade financeira ao comparar os totais de custo antes e depois do processo de alocação.
+      **Escopo:** Compara o custo total de EKS (calculado como `split_cost + unused_cost`) da tabela de entrada `silver_aws_eks_cost_usage_report` com o custo total da tabela de saída `aws_eks_costs_usage`, após a exclusão de namespaces 'empty'.
+      **Audiência:** Engenheiros de Dados e FinOps, que usam esta tabela para validar a integridade do pipeline de custos de EKS.
+      **Processo:** O modelo calcula o custo total mensal em duas CTEs separadas, uma para a tabela pré-processamento (`silver_aws_eks_cost_usage_report`) e outra para a pós-processamento (`aws_eks_costs_usage`). Em seguida, une os dois resultados pelo mês para permitir uma comparação direta lado a lado.
+      **Recorrência de atualização:** Diária.
+
+    tags: [silver, will, custos_cloud, checksum]
+
+    columns:
+      - name: start_date
+        description: "O primeiro dia do mês de referência para a comparação de custos."
+      - name: "silver_pre_eks_usage_cost"
+        description: "O custo total mensal de EKS calculado a partir da tabela de entrada do fluxo, `silver_aws_eks_cost_usage_report`. Representa o valor total antes da alocação."
+      - name: "silver_eks_usage_cost"
+        description: "O custo total mensal de EKS calculado a partir da tabela de saída do fluxo, `aws_eks_costs_usage`. Representa o valor total após a alocação. Este valor deve ser idêntico ao da coluna anterior."

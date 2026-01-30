@@ -1,0 +1,40 @@
+version: 2
+
+models:
+  - name: aux_datadog_costs_backfill
+    description: >
+      **Propósito:** Realizar um preenchimento retroativo (`backfill`) dos custos do Datadog, estimando a alocação por time para o período de Dezembro de 2023 a Abril de 2024, quando a atribuição detalhada não estava disponível.
+      **Escopo:** Inclui custos do Datadog para o período de Dezembro de 2023 a Abril de 2024. A base para o rateio dos custos é extraída exclusivamente dos dados de uso do mês de Junho de 2024.
+      **Audiência:** Engenheiros de FinOps e Analistas Financeiros.
+      **Processo:** Os dados são derivados da tabela `datadog_costs`. O modelo primeiro agrega o custo total mensal por produto para o período histórico (Dez/23 a Abr/24). Em paralelo, calcula as taxas de rateio de custo por time com base nos dados de Junho de 2024. Por fim, aplica as taxas de rateio de Junho aos totais históricos para estimar a alocação de custo por time no passado.
+      **Recorrência de atualização:** Estática. Este modelo foi criado para um preenchimento pontual e não necessita de atualizações recorrentes.
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    tags: [silver, will, custos_cloud]
+
+    columns:
+      - name: start_date
+        description: "O primeiro dia do mês para o qual o custo de backfill está sendo gerado (período de Dez/23 a Abr/24). Originado da CTE `months_total`."
+      - name: service
+        description: "Valor fixo 'backfill' para identificar que a linha foi gerada por este processo de preenchimento retroativo."
+      - name: circle_id
+        description: "ID do Círculo (time) que está recebendo a fração do custo de backfill. O ID é herdado dos times que tiveram custos em Junho de 2024, que serve como base para o rateio."
+      - name: circle_type
+        description: "Tipo do Círculo (ex. 'platform', 'stream_aligned'). Herdado dos dados de Junho de 2024."
+      - name: product_name
+        description: "Nome do produto Datadog ao qual o custo se refere. Usado como uma das chaves do `JOIN`."
+      - name: product_group
+        description: "Grupo de produto do Datadog. Herdado dos dados de Junho de 2024."
+      - name: billing_type
+        description: "Tipo de faturamento (ex. 'on_demand', 'committed'). Usado como uma das chaves do `JOIN`."
+      - name: invoice_status
+        description: "Status da fatura. Herdado dos dados de Junho de 2024, que servem de base para o rateio."
+      - name: cost
+        description: "O valor do custo de backfill, calculado e alocado para o time. A lógica é: `Custo Total do Mês Antigo * Taxa de Rateio de Junho de 2024`."

@@ -1,0 +1,83 @@
+version: 2
+
+models:
+  - name: silver_aws_rds_costs
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Construir uma visão financeira completa e reconciliada dos custos do Amazon RDS, substituindo seletivamente a lógica de custos padrão da AWS por um método de cálculo customizado para maior precisão e garantindo que o total final seja 100% reconciliado com a fatura.
+      **Escopo:** Inclui todos os custos de RDS do `intermediate_aws_cost_usage_report`, mas exclui os custos de uso de instâncias na região `sa-east-1` a partir de 2025 para substituí-los por um cálculo customizado.
+      **Audiência:** Engenheiros de Dados e Analistas de FinOps que consomem esta tabela como a fonte da verdade para todos os custos de RDS.
+      **Processo:** A tabela final é o resultado da união de quatro componentes lógicos: 1. `aws_costs` seleciona todos os custos de RDS, exceto o uso de instâncias em `sa-east-1` pós-2025; 2. `aws_rds_costs_by_sdk` injeta custos recalculados para as instâncias excluídas; 3. `savings` insere a economia de reservas como um custo negativo; 4. `divergence` calcula a diferença para o custo total original e a insere como uma linha de reconciliação.
+      **Recorrência de atualização:** Diária.
+
+    tags: [silver, will, custos_cloud]
+
+    columns:
+      - name: start_date
+        description: "Data de referência do custo, consolidada de todas as fontes."
+      - name: resource_id
+        description: "ID do recurso. Pode ser o `resource_id` da AWS ou um ID sintético gerado para registros de 'Savings' (economia) e 'Divergence' (reconciliação)."
+      - name: description
+        description: "Descrição do custo. Pode ser a descrição original da AWS ou uma descrição detalhada gerada para os registros de 'Savings' e 'Divergence'."
+      - name: aws_product_name
+        description: "Nome do produto da AWS. O valor é sempre 'Amazon Relational Database Service'."
+      - name: circle_id
+        description: "ID do Círculo de custo. Derivado das fontes de dados ou atribuído a um valor fixo para os registros de 'Savings' e 'Divergence'."
+      - name: providedby_id
+        description: "ID do provedor do Círculo, derivado da fonte `intermediate_aws_cost_usage_report`."
+      - name: circle_id_source
+        description: "Indica a origem da lógica de atribuição do custo, como 'aws_rds_costs_by_sdk' (custo recalculado) ou 'silver_aws_rds_reservations_costs' (economia de reserva)."
+      - name: tag_repository
+        description: "Tag de repositório. Derivado de `intermediate_aws_cost_usage_report` ou `aws_rds_costs_by_sdk`."
+      - name: tag_product
+        description: "Tag de produto. Derivado de `intermediate_aws_cost_usage_report` ou `aws_rds_costs_by_sdk`."
+      - name: tag_management
+        description: "Tag de gerenciamento. Derivado de `intermediate_aws_cost_usage_report` ou `aws_rds_costs_by_sdk`."
+      - name: tag_name
+        description: "Tag de nome (`Name`). Pode ser a tag original do recurso ou um nome sintético como 'RDS - Savings Reservations' ou 'RDS - Difference Reservations'."
+      - name: tag_policy_compliant
+        description: "Conformidade com política de tags. Derivado das fontes ou fixado como `true` para 'Savings' e 'Divergence'."
+      - name: tag_policy_compliant_actual
+        description: "Conformidade de tagueamento no momento do uso. Derivado das fontes ou fixado como `true` para 'Savings' e 'Divergence'."
+      - name: billing_origin
+        description: "Origem da cobrança. Derivado de `intermediate_aws_cost_usage_report` ou fixado como 'AWS' para as outras fontes."
+      - name: item_type
+        description: "Tipo do item de linha. Derivado de `intermediate_aws_cost_usage_report` ou fixado como 'Usage' para as outras fontes."
+      - name: account_id
+        description: "ID da conta da AWS. Derivado das fontes ou fixado como '887592687927' (master) para 'Savings' e 'Divergence'."
+      - name: account_name
+        description: "Nome da conta da AWS. Derivado das fontes ou fixado como 'master' para 'Savings' e 'Divergence'."
+      - name: region
+        description: "Região da AWS. Consolidado de todas as fontes."
+      - name: environment
+        description: "Ambiente do recurso. Calculado com base no `account_name` ou `region`."
+      - name: usage_type
+        description: "Tipo de uso faturado. Derivado das fontes ou fixado como 'Usage' para 'Savings' e 'Divergence'."
+      - name: instance_type
+        description: "Tipo da instância. Derivado de `intermediate_aws_cost_usage_report` ou `aws_rds_costs_by_sdk`."
+      - name: multi_az
+        description: "Indicação de Multi-AZ. Derivado de `intermediate_aws_cost_usage_report` ou `aws_rds_costs_by_sdk`."
+      - name: engine
+        description: "Motor de banco de dados. Consolidado de todas as fontes."
+      - name: pricing_term
+        description: "Termo de precificação. Derivado de `intermediate_aws_cost_usage_report`."
+      - name: reservation_start_time
+        description: "Início da reserva. Derivado de `intermediate_aws_cost_usage_report`."
+      - name: reservation_end_time
+        description: "Fim da reserva. Derivado de `intermediate_aws_cost_usage_report`."
+      - name: unblended_cost
+        description: "Custo bruto. Este campo é sobrecarregado para diferentes propósitos: contém o custo para registros padrão, a economia como um valor negativo para registros de `savings`, e a diferença de reconciliação para registros de `divergence`."
+      - name: reservation_cost
+        description: "Custo de reserva. Derivado de `intermediate_aws_cost_usage_report` e zerado para as outras fontes."
+      - name: reservation_net_effective_cost
+        description: "Custo efetivo líquido da reserva. Derivado de `intermediate_aws_cost_usage_report` e zerado para as outras fontes."
+      - name: reservation_amortized_upfront_cost
+        description: "Custo inicial amortizado da reserva. Derivado de `intermediate_aws_cost_usage_report` e zerado para as outras fontes."

@@ -1,0 +1,45 @@
+version: 2
+
+models:
+  - name: silver_mongodb_atlas_cost_usage_report
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Atuar como a principal tabela de integração e atribuição de custos do MongoDB Atlas na camada Silver, enriquecendo os dados brutos de custo para garantir que cada linha de gasto seja associada a um time (`circle_id`).
+      **Escopo:** Inclui todos os custos de uso provenientes da tabela `stg_mongodb_atlas_cost_usage_report`.
+      **Audiência:** Engenheiros de Dados e Analistas de FinOps.
+      **Processo:** O modelo enriquece os dados brutos de custo fazendo join com quatro tabelas auxiliares (`aux_*`). A atribuição do `circle_id` é feita por uma estrutura `COALESCE` que percorre cinco fontes de mapeamento em ordem de precedência: 1. Tag direta do dado de origem; 2. Última tag válida do cluster (`aux_mongodb_atlas_resource_tags`); 3. Mapeamento de nome de time (`aux_mongodb_atlas_tag_circle_circle`); 4. Mapeamento por SKU (`aux_mongodb_atlas_sku_circle`); 5. Mapeamento de clusters não tagueados (`aux_mongodb_atlas_untagged_clusters_circle`). Se nenhuma regra for satisfeita, o custo é classificado como 'Não Tagueado'.
+      **Recorrência de atualização:** Diária.
+
+    tags: [silver, will, custos_cloud, mongodb]
+
+    columns:
+      - name: start_date
+        description: "Data de início do período de faturamento do uso. Copiado diretamente da coluna `start_date` da tabela `stg_mongodb_atlas_cost_usage_report`."
+      - name: end_date
+        description: "Data de fim do período de faturamento do uso. Copiado diretamente da coluna `end_date` da tabela `stg_mongodb_atlas_cost_usage_report`."
+      - name: clustername
+        description: "Nome do cluster do MongoDB Atlas ao qual o custo está associado. Copiado diretamente da coluna `clustername` da tabela `stg_mongodb_atlas_cost_usage_report`."
+      - name: sku
+        description: "SKU (Stock Keeping Unit) que identifica o item de linha de faturamento. Copiado diretamente da coluna `sku` da tabela `stg_mongodb_atlas_cost_usage_report`."
+      - name: unit
+        description: "Unidade de medida para a qual a `quantity` é faturada (ex. GB-Mo, Hours). Copiado diretamente da coluna `unit` da tabela `stg_mongodb_atlas_cost_usage_report`."
+      - name: quantity
+        description: "Quantidade consumida do recurso, medida na unidade definida pela coluna `unit`. Copiado diretamente da coluna `quantity` da tabela `stg_mongodb_atlas_cost_usage_report`."
+      - name: totalpricecents
+        description: "Custo total do item de linha, expresso em centavos de dólar. Copiado diretamente da coluna `totalpricecents` da tabela `stg_mongodb_atlas_cost_usage_report`."
+      - name: unitpricedollars
+        description: "Preço unitário do SKU em dólares, servindo como base para o cálculo do custo total. Copiado diretamente da coluna `unitpricedollars` da tabela `stg_mongodb_atlas_cost_usage_report`."
+      - name: circle_id
+        description: "Identificador do Círculo (time) associado ao custo. É o campo central deste modelo, preenchido através de uma cascata de 5 regras de negócio para garantir a atribuição mais precisa possível. Se nenhuma regra for satisfeita, recebe um valor padrão para 'Não Tagueado'."
+      - name: tag_policy_compliant
+        description: "Indicador booleano (`true`/`false`) que verifica se a atribuição do `circle_id` foi feita a partir de uma tag explícita no recurso (seja a tag do período atual ou a última tag válida conhecida). Essencial para medir a qualidade do tagueamento."
+      - name: environment
+        description: "Ambiente do recurso ('production' ou 'development'). O valor é inferido a partir do `groupname` ou da `tag_environment` no dado de origem, com 'production' como padrão."

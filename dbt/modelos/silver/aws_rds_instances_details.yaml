@@ -1,0 +1,63 @@
+version: 2
+
+models:
+  - name: aws_rds_instances_details
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Criar um inventário diário e consolidado de todas as instâncias Amazon RDS ativas, superando as inconsistências históricas das fontes de dados. O modelo une dados de três períodos distintos, cada um com sua própria fonte da verdade, para construir uma visão única e coesa.
+
+      **Escopo:** A tabela inclui instâncias ativas de diferentes períodos, utilizando fontes específicas para cada um. Para o período de 25/Fev/2025 a 11/Mai/2025, foca em instâncias Aurora PostgreSQL (`db.r6g`, `r7g`, `t4g`). Para o período legado (antes de 12/Mai/2025), inclui todos os tipos de instância com custo positivo. A partir de 12/Mai/2025, utiliza uma nova fonte de dados como verdade.
+      
+      **Audiência:** Engenheiros de Dados e Analistas de FinOps. É uma tabela fundamental para modelos de custos subsequentes, como `aws_rds_costs_by_sdk`.
+      
+      **Processo:** Os dados são consolidados a partir de um `UNION ALL` de três fontes: `stg_cloudwatch_rds_report` para o período intermediário, `intermediate_aws_cost_usage_report` para o legado e `stg_rds_instances_details` para o período moderno. Após a união, a CTE `final` utiliza funções de janela (`MAX OVER PARTITION`) para preencher de forma consistente os valores de `circle_id` e tags, e enriquece os dados com informações de nomes de contas e detalhes de reserva.
+      
+      **Recorrência de atualização:** Diária.
+
+    tags: [silver, will, custos_cloud, rds]
+
+    columns:
+      - name: start_date
+        description: "Data em que a instância estava ativa, consolidada a partir das três fontes de dados."
+      - name: account_id
+        description: "ID da conta da AWS onde a instância reside."
+      - name: account_name
+        description: "Nome da conta da AWS, obtido através de um `JOIN` com a tabela `aws_account_names`."
+      - name: region
+        description: "Região da AWS da instância."
+      - name: circle_id
+        description: "ID do Círculo de custo. Calculado com uma função de janela que seleciona o valor mais relevante (não nulo/padrão) para o recurso no dia."
+      - name: tag_product
+        description: "Valor da tag 'product'. Calculado com uma função de janela para selecionar o valor mais relevante (não 'Not Tagged') disponível."
+      - name: tag_management
+        description: "Valor da tag 'management'. Calculado com uma função de janela para selecionar o valor mais relevante (não 'Not Tagged') disponível."
+      - name: tag_repository
+        description: "Valor da tag 'repository'. Calculado com uma função de janela para selecionar o valor mais relevante (não 'Not Tagged') disponível."
+      - name: instance_name
+        description: "Nome da instância RDS. Calculado com uma função de janela que seleciona o valor mais relevante ou, como fallback, extrai o nome do `resource_id`."
+      - name: resource_id
+        description: "ID único do recurso (instância RDS) na AWS."
+      - name: status
+        description: "Indica se a instância estava ativa na data de referência."
+      - name: engine
+        description: "Motor de banco de dados da instância (ex. 'aurora-postgresql')."
+      - name: instance_size
+        description: "Tamanho (tipo) da instância RDS (ex. 'db.r6g.large')."
+      - name: multi_az
+        description: "Indica se a instância é Multi-AZ."
+      - name: storage
+        description: "Tipo de armazenamento (ex. 'EBS Only' ou 'Aurora IO Optimization Mode')."
+      - name: instance_commited
+        description: "Tipo de instância comprometida para reserva, obtido de `aux_rds_instance_commited`."
+      - name: multiply_commited
+        description: "Fator de normalização para compromisso de reserva, obtido de `aux_rds_instance_commited`."
+      - name: eligible_commit
+        description: "Indica se a instância é elegível para um compromisso de reserva, com base em um conjunto de regras de negócio."

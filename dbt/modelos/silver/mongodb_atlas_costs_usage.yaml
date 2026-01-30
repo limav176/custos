@@ -1,0 +1,45 @@
+version: 2
+
+models:
+  - name: mongodb_atlas_costs_usage
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Isolar e apresentar os custos de uso direto da plataforma MongoDB Atlas, excluindo os custos de suporte. Esta tabela representa o consumo real de recursos pelos times e serve como a principal fonte de dados de uso do MongoDB para a camada Gold.
+      **Escopo:** Inclui todos os itens de custo da tabela `silver_mongodb_atlas_cost_usage_report`, com a exceção da linha de custo onde a coluna `sku` é 'ATLAS_SUPPORT', que é explicitamente excluída.
+      **Audiência:** Analistas de Negócios, Líderes de Times de Produto e Analistas de FinOps para acompanhamento de custos diretos de banco de dados.
+      **Processo:** A tabela é derivada diretamente de `silver_mongodb_atlas_cost_usage_report`. Ela simplesmente filtra a fonte para remover a linha de custo correspondente ao suporte (`ATLAS_SUPPORT`), mantendo todos os outros custos de uso sem realizar agregações ou transformações.
+      **Recorrência de atualização:** Diária.
+
+    tags: [silver, will, custos_cloud, mongodb, usage]
+
+    columns:
+      - name: start_date
+        description: "Data de início do período de faturamento. Fonte: `silver_mongodb_atlas_cost_usage_report`."
+      - name: end_date
+        description: "Data de término do período de faturamento. Fonte: `silver_mongodb_atlas_cost_usage_report`."
+      - name: cluster_name
+        description: "Nome do cluster MongoDB Atlas que gerou o custo, renomeado da coluna `clustername` da fonte."
+      - name: sku
+        description: "O SKU (Stock Keeping Unit) do item de linha. O valor 'ATLAS_SUPPORT' é explicitamente excluído desta tabela."
+      - name: unit
+        description: "Unidade de medida para o faturamento do uso (ex. `GB_PER_HOUR`). Fonte: `silver_mongodb_atlas_cost_usage_report`."
+      - name: quantity
+        description: "Quantidade de `unit` consumida, convertida para o tipo `double`. Fonte: `silver_mongodb_atlas_cost_usage_report`."
+      - name: unit_price_dollars
+        description: "Preço unitário em dólares para a `unit`, convertido para o tipo `double`. Fonte: `silver_mongodb_atlas_cost_usage_report`."
+      - name: total_price_cents
+        description: "Preço total em centavos de dólar para a linha de custo, convertido para o tipo `integer`. Fonte: `silver_mongodb_atlas_cost_usage_report`."
+      - name: circle_id
+        description: "ID do Círculo (time) associado ao custo. Herdado da tabela fonte após a complexa lógica de atribuição."
+      - name: tag_policy_compliant
+        description: "Booleano que indica se o `circle_id` foi encontrado via tag direta no recurso. Herdado da tabela fonte."
+      - name: environment
+        description: "Ambiente do recurso (ex. 'production'), inferido na tabela fonte."

@@ -1,0 +1,41 @@
+version: 2
+
+models:
+  - name: datadog_costs_shared
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Isolar e agregar todos os custos do Datadog que são considerados "compartilhados". Esta tabela é a fonte principal para os processos de rateio, consolidando custos que não são atribuídos diretamente a um time de produto final.
+      **Escopo:** Inclui custos de faturas fechadas (`invoice_status = 'closed'`), dados históricos de backfill e projeções de forecast. Filtra os dados para incluir apenas custos onde o `product_group` é 'shared' ou o `circle_type` é 'platform'. Custos que não se encaixam nesses critérios são excluídos.
+      **Audiência:** Engenheiros de Dados e Analistas de FinOps responsáveis pela gestão e rateio de custos de cloud.
+      **Processo:** Unifica dados de três fontes (`datadog_costs`, `aux_datadog_costs_backfill`, `aux_datadog_costs_forecast`). Filtra a união para selecionar apenas custos compartilhados, baseando-se nos campos `product_group` e `circle_type`. Por fim, agrega os valores de custo (`SUM(cost)`) agrupando pelas demais dimensões.
+      **Recorrência de atualização:** Mensal.
+
+    tags: [silver, will, custos_cloud, datadog, shared]
+
+    columns:
+      - name: start_date
+        description: "Início do mês de referência do custo. Originado da união das três fontes de dados."
+      - name: service
+        description: "Nome do serviço do Datadog ao qual o custo está associado. Originado da união das fontes."
+      - name: circle_id
+        description: "ID do Círculo (time) associado ao custo. Nesta tabela, este ID corresponderá a um time de plataforma ou a um custo de um `product_group` 'shared'."
+      - name: circle_type
+        description: "Tipo do Círculo. De acordo com a lógica de filtragem, o valor aqui será predominantemente 'platform'."
+      - name: product_name
+        description: "Nome do produto ou família de produtos do Datadog. Originado da união das fontes."
+      - name: product_group
+        description: "Agrupamento de produtos do Datadog. De acordo com a lógica de filtragem, o valor aqui será 'shared' ou o custo estará associado a um time de plataforma."
+      - name: billing_type
+        description: "Tipo de faturamento do custo (ex. 'on_demand', 'committed'). Originado da união das fontes."
+      - name: invoice_status
+        description: "Status da fatura associada ao custo. Pode ser 'closed', 'backfill' ou 'forecast', dependendo da fonte."
+      - name: cost
+        description: "Valor do custo agregado (`SUM(cost)`) para a combinação única das outras dimensões."

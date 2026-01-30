@@ -1,0 +1,84 @@
+version: 2
+
+models:
+  - name: intermediate_aws_cost_usage_report
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:**
+      Atua como o modelo central de enriquecimento para todos os custos da AWS. Sua responsabilidade primária é atribuir um `circle_id` (proprietário do custo) a cada linha de despesa, utilizando uma robusta cascata de regras de negócio para garantir a máxima cobertura e precisão na atribuição. Este modelo é a espinha dorsal para a governança de custos na AWS.
+      **Escopo:** Processa todos os dados da tabela `stg_aws_cost_usage_report`. A lógica de atribuição de `circle_id` inclui uma ampla gama de fontes de mapeamento, desde tags diretas no recurso até mapeamentos por nome de produto, conta e recurso.
+      **Audiência:** Exclusivamente Engenheiros de Dados. Esta tabela serve como a fonte canônica para todos os modelos subsequentes de custo da AWS (`silver_*` e `gold_*`), mas não é destinada ao consumo direto para análises de negócio.
+      **Processo:** Ingere dados de `stg_aws_cost_usage_report` e os enriquece através de `JOINs` com oito tabelas auxiliares de mapeamento. O `circle_id` é atribuído usando uma lógica `COALESCE` que avalia as fontes em uma ordem de precedência estrita, registrando a fonte vencedora em `circle_id_source`. Também consolida tags e avalia a conformidade com políticas de tagueamento.
+      **Recorrência de atualização:** Diária.
+
+    tags: [silver, will, custos_cloud, intermediate]
+
+    columns:
+      - name: start_date
+        description: A data de início do período de faturamento para o item de custo.
+      - name: resource_id
+        description: O identificador único do recurso na AWS (ex. ARN de um bucket S3, ID de uma instância EC2).
+      - name: description
+        description: A descrição textual do item de linha, fornecida pelo AWS CUR.
+      - name: aws_product_name
+        description: O nome do serviço da AWS ao qual o custo está associado (ex. 'Amazon EC2', 'Amazon S3').
+      - name: circle_id
+        description: "O ID do círculo de custo atribuído à despesa. Este é o campo-chave gerado pela cascata de 8 regras de negócio, representando o proprietário final do custo. A lógica utiliza `COALESCE` para determinar o primeiro valor não nulo na seguinte ordem de precedência: `aux_aws_product_circle`, `aux_aws_resource_id_tags`, `aws_cost_usage_report` (tag nativa), `rivery_aux_aws_tag_circle_circle`, `aux_aws_account_circle`, `aux_aws_tag_product_circle`, `aux_aws_tag_name_circle`, `aux_aws_resource_circle`, e '999...' como fallback."
+      - name: providedby_id
+        description: "O ID do provedor do círculo. Calculado com uma lógica `COALESCE` que prioriza o valor de `aux_aws_resource_id_tags` sobre o valor de `aws_cost_usage_report`, com '999...' como fallback."
+      - name: circle_id_source
+        description: "O nome da tabela ou fonte de dados que serviu como a regra vencedora na atribuição do `circle_id`. Essencial para auditoria e depuração. A lógica é construída com uma estrutura `CASE WHEN` aninhada que segue a mesma ordem de precedência da atribuição do `circle_id`."
+      - name: tag_repository
+        description: "O valor final consolidado da tag 'repository'. Calculado com uma lógica `COALESCE` que prioriza o valor de `aux_aws_resource_id_tags` sobre o valor de `aws_cost_usage_report`, com 'Not Tagged' como fallback."
+      - name: tag_product
+        description: "O valor final consolidado da tag 'product'. Calculado com uma lógica `COALESCE` que prioriza o valor de `aux_aws_resource_id_tags` sobre o valor de `aws_cost_usage_report`, com 'Not Tagged' como fallback."
+      - name: tag_management
+        description: "O valor final consolidado da tag 'management'. Calculado com uma lógica `COALESCE` que prioriza o valor de `aux_aws_resource_id_tags` sobre o valor de `aws_cost_usage_report`, com 'Not Tagged' como fallback."
+      - name: tag_name
+        description: "O valor final consolidado da tag 'name'. Calculado com uma lógica `COALESCE` que prioriza o valor de `aux_aws_resource_id_tags` sobre o valor de `aws_cost_usage_report`, com 'Not Tagged' como fallback."
+      - name: tag_policy_compliant
+        description: "Um indicador booleano (`true`/`false`). Retorna `true` se o recurso pertence a uma lista de serviços que não permitem tagueamento (ex. Amazon GuardDuty), se é um recurso explicitamente marcado como bypass (`aux_aws_resource_circle`), ou se possui um `circle_id` preenchido a partir das fontes `aux_aws_resource_id_tags` ou `aws_cost_usage_report`. Caso contrário, retorna `false`."
+      - name: tag_policy_compliant_actual
+        description: "Uma variação do indicador de conformidade. Retorna `true` para os mesmos serviços e recursos em bypass da política, ou se o `circle_id` nativo da `aws_cost_usage_report` estiver preenchido. Caso contrário, retorna `false`."
+      - name: billing_origin
+        description: A origem da cobrança, indicando se o custo é do Marketplace ou diretamente da AWS.
+      - name: item_type
+        description: O tipo do item de linha no CUR (ex. 'Usage', 'Credit', 'Tax', 'RIFee').
+      - name: account_id
+        description: O ID da conta da AWS onde o custo foi incorrido.
+      - name: account_name
+        description: O nome legível da conta AWS, enriquecido a partir do modelo `aws_account_names`.
+      - name: region
+        description: A região da AWS onde o recurso está localizado ou o serviço foi consumido.
+      - name: environment
+        description: "O ambiente do recurso. A lógica `CASE WHEN` retorna 'production' se o `account_name` contiver 'prod', 'development' se contiver 'dev', 'development' para a região 'us-east-1', 'production' para a região 'sa-east-1', e 'production' como padrão."
+      - name: usage_type
+        description: Descreve a unidade de consumo que está sendo faturada (ex. 'BoxUsage:t2.micro', 'DataTransfer-Out-Bytes').
+      - name: instance_type
+        description: O tipo da instância de computação, quando aplicável (ex. 'db.t3.micro', 'ml.m5.large').
+      - name: multi_az
+        description: Indica se o recurso está configurado para operar em múltiplas zonas de disponibilidade (Multi-AZ).
+      - name: engine
+        description: O motor de software do serviço, geralmente aplicável a bancos de dados (ex. 'PostgreSQL', 'MySQL').
+      - name: pricing_term
+        description: O termo de precificação do recurso (ex. 'OnDemand', 'Reserved', 'Spot').
+      - name: unblended_cost
+        description: O custo bruto do uso do serviço, calculado pela taxa pública por hora, sem a aplicação de descontos ou créditos.
+      - name: reservation_cost
+        description: O custo associado ao uso de instâncias reservadas.
+      - name: reservation_start_time
+        description: A data e hora de início da vigência da reserva, se o custo estiver associado a uma.
+      - name: reservation_end_time
+        description: A data e hora de término da vigência da reserva, se o custo estiver associado a uma.
+      - name: reservation_net_effective_cost
+        description: O custo efetivo líquido para itens de linha de instâncias reservadas.
+      - name: reservation_amortized_upfront_cost
+        description: A porção amortizada do custo inicial pago pela reserva, distribuída ao longo do período da reserva.

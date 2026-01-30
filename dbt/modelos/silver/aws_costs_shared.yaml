@@ -1,0 +1,70 @@
+version: 2
+
+models:
+  - name: aws_costs_shared
+    description: |
+      **Propósito:** Isolar e agregar todos os custos da AWS considerados "compartilhados", como taxas, créditos e descontos em nível de conta, que não representam consumo direto de recursos e não são atribuíveis a um time específico.
+      **Escopo:** Inclui registros que não são de `Usage` (`item_type <> 'Usage'`) e que, adicionalmente, ou não possuem um `circle_id` atribuído, ou são explicitamente identificados como 'tax' ou 'discount' na descrição. Exclui custos de Marketplace e Support, que são tratados em modelos separados.
+      **Audiência:** Engenheiros de FinOps e Analistas Financeiros. Os custos desta tabela são posteriormente rateados entre os Círculos na camada Gold.
+      **Processo:** Os dados são derivados da tabela `silver_aws_cost_usage_report`. O modelo aplica uma lógica de filtragem para excluir custos já categorizados (Marketplace, Support) e, em seguida, seleciona apenas os itens que se encaixam na definição de custo compartilhado (não-uso e sem dono, ou taxas/descontos explícitos).
+      **Recorrência de atualização:** Diária.
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    tags:
+      - "camada:silver"
+      - "dominio:custos_cloud"
+      - "provedor:aws"
+      - "tipo_de_custo:shared"
+      - "logica:filtragem"
+      - "tabela_fonte:silver_aws_cost_usage_report"
+
+    columns:
+      - name: start_date
+        description: "Data de início do período de faturamento."
+      - name: resource_id
+        description: "ID do recurso da AWS. Pode ser nulo para custos não associados a um recurso específico."
+      - name: description
+        description: "Descrição do item de linha de custo, como 'Tax' ou 'Discount'."
+      - name: billing_origin
+        description: "Origem da cobrança."
+      - name: aws_product_name
+        description: "Nome do produto da AWS."
+      - name: circle_id
+        description: "ID do Círculo (time). Conforme a lógica de filtragem, este campo será geralmente nulo, indicando um custo não atribuído a um time específico."
+      - name: providedby_id
+        description: "ID do provedor do Círculo."
+      - name: tag_repository
+        description: "Tag de repositório associada ao recurso."
+      - name: tag_product
+        description: "Tag de produto associada ao recurso."
+      - name: tag_management
+        description: "Tag de gerenciamento associada ao recurso."
+      - name: tag_name
+        description: "Tag de nome (`Name`) associada ao recurso."
+      - name: environment
+        description: "Ambiente ao qual o recurso pertence."
+      - name: usage_type
+        description: "Tipo de uso faturado."
+      - name: engine
+        description: "Motor de banco de dados, se aplicável."
+      - name: instance_type
+        description: "Tipo da instância da AWS, se aplicável."
+      - name: pricing_term
+        description: "Termo de precificação para o uso (ex. 'OnDemand')."
+      - name: account_id
+        description: "ID da conta da AWS onde o custo foi incorrido."
+      - name: account_name
+        description: "Nome da conta da AWS."
+      - name: region
+        description: "Região da AWS onde o recurso está localizado."
+      - name: unblended_cost
+        description: "Custo bruto do uso, sem aplicação de descontos."
+      - name: reservation_cost
+        description: "Custo associado a instâncias reservadas."

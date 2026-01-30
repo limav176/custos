@@ -1,0 +1,70 @@
+version: 2
+
+models:
+  - name: aws_costs_marketplace
+    description: |
+      **Propósito:** Isolar e consolidar todos os custos faturados através do `AWS Marketplace`, além de outros encargos de terceiros e créditos específicos que são categorizados de forma semelhante para fins de contabilidade.
+      **Escopo:** Inclui registros que atendem a uma das seguintes condições: a `billing_origin` é 'AWS Marketplace' (excluindo produtos 'Bedrock'), o `aws_product_name` é 'OCBAWS Brazil 2P', ou a `description` corresponde a um crédito contratual específico.
+      **Audiência:** Engenheiros de FinOps e Analistas Financeiros.
+      **Processo:** Os dados são derivados da tabela `silver_aws_cost_usage_report`. O modelo aplica um filtro para selecionar os custos de marketplace e, crucialmente, padroniza a coluna `billing_origin` para 'AWS Marketplace' em todos os registros de saída, garantindo uma categorização consistente.
+      **Recorrência de atualização:** Diária.
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    tags:
+      - "camada:silver"
+      - "dominio:custos_cloud"
+      - "provedor:aws"
+      - "tipo_de_custo:marketplace"
+      - "logica:filtragem"
+      - "tabela_fonte:silver_aws_cost_usage_report"
+
+    columns:
+      - name: start_date
+        description: "Data de início do período de faturamento."
+      - name: resource_id
+        description: "ID do recurso da AWS, se aplicável."
+      - name: description
+        description: "Descrição do item de linha de faturamento."
+      - name: billing_origin
+        description: "Origem da cobrança. Este campo é padronizado e fixado como 'AWS Marketplace' para todos os registros nesta tabela, independentemente da sua origem real, para garantir uma categorização consistente."
+      - name: aws_product_name
+        description: "Nome do produto da AWS ou Marketplace."
+      - name: circle_id
+        description: "ID do Círculo (time) associado ao custo."
+      - name: providedby_id
+        description: "ID do provedor do Círculo."
+      - name: tag_repository
+        description: "Tag de repositório associada ao recurso."
+      - name: tag_product
+        description: "Tag de produto associada ao recurso."
+      - name: tag_management
+        description: "Tag de gerenciamento associada ao recurso."
+      - name: tag_name
+        description: "Tag de nome (`Name`) associada ao recurso."
+      - name: environment
+        description: "Ambiente ao qual o recurso pertence."
+      - name: usage_type
+        description: "Tipo de uso faturado."
+      - name: engine
+        description: "Motor de banco de dados, se aplicável."
+      - name: instance_type
+        description: "Tipo da instância, se aplicável."
+      - name: pricing_term
+        description: "Termo de precificação."
+      - name: account_id
+        description: "ID da conta da AWS."
+      - name: account_name
+        description: "Nome da conta da AWS."
+      - name: region
+        description: "Região da AWS."
+      - name: unblended_cost
+        description: "Custo bruto, antes de descontos."
+      - name: reservation_cost
+        description: "Custo relacionado a instâncias reservadas."

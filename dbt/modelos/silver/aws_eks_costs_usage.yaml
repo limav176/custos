@@ -1,0 +1,75 @@
+version: 2
+
+models:
+  - name: aws_eks_costs_usage
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Preparar os custos do Amazon EKS para análise, modelando os custos de uso e os descontos da plataforma como duas transações distintas. O objetivo é criar um "livro-razão" onde os custos de uso são débitos (valores positivos) e os descontos (como Savings Plans) são créditos (valores negativos). A soma total dos custos nesta tabela reflete o custo líquido.
+
+      **Escopo:** A tabela abrange todos os custos relacionados aos clusters Amazon EKS que são registrados na tabela `silver_aws_eks_cost_usage_report`. Isso inclui tanto os custos de uso direto por namespace quanto os custos negativos que representam descontos e Savings Plans. Não há filtros de data ou de recursos específicos aplicados na query principal, englobando todos os dados da fonte.
+      
+      **Audiência:** Engenheiros de FinOps e times de plataforma. Esta tabela é a fonte principal para todos os modelos de agregação de custos de EKS na camada Gold.
+
+      **Processo:** O modelo é construído a partir da união de duas CTEs que leem da tabela `silver_aws_eks_cost_usage_report`. A primeira, `stream_aligned_cost`, captura os custos de uso como valores positivos. A segunda, `platform_discount`, inverte o sinal dos custos para representar os descontos como valores negativos (créditos), atribuindo-os a um círculo de plataforma. A junção com `holaspirit_circles` enriquece os dados com o tipo de círculo.
+      
+      **Recorrência de atualização:** Diária.
+
+    tags: [silver, will, custos_cloud, eks]
+
+    columns:
+      - name: start_date
+        description: "Data de início do período de faturamento. Copiado diretamente da coluna `start_date` da tabela `silver_aws_eks_cost_usage_report`."
+      - name: namespace
+        description: "Namespace do Kubernetes. Para custos diretos, é copiado da origem; para descontos, é fixado como 'empty'."
+      - name: cluster_name
+        description: "Nome do cluster EKS. Copiado diretamente da coluna `cluster_name` da tabela `silver_aws_eks_cost_usage_report`."
+      - name: instance_id
+        description: "ID da instância EC2 subjacente. Copiado diretamente da coluna `parent_resource_id` da tabela `silver_aws_eks_cost_usage_report`."
+      - name: description
+        description: "Descrição do custo. Retorna 'Kubernetes' para custos diretos e 'Discount related to Kubernetes [cluster_name]' para descontos."
+      - name: billing_origin
+        description: "Origem da cobrança. Copiado diretamente da coluna `billing_origin` da tabela `silver_aws_eks_cost_usage_report`."
+      - name: aws_product_name
+        description: "Nome do produto. Para custos de uso, é 'Amazon Elastic Kubernetes Service'. Para descontos, é 'Amazon Elastic Compute Cloud', de onde os descontos se originam."
+      - name: circle_id
+        description: "ID do Círculo (time). Para custos de uso, é o `circle_id` do namespace. Para descontos (créditos), é atribuído a um círculo de plataforma, usando o `parent_tag_circle_id` se disponível."
+      - name: providedby_id
+        description: "ID do provedor. Para custos de uso, é um valor padrão. Para descontos, usa o `parent_provided_by_id` se disponível."
+      - name: tag_policy_compliant
+        description: "Conformidade com a política de tags. Para custos diretos, é copiado da origem; para descontos, é sempre `true`."
+      - name: tag_policy_compliant_actual
+        description: "Conformidade de tagueamento no momento do uso. Para custos diretos, é copiado da origem; para descontos, é sempre `true`."
+      - name: circle_type
+        description: "Tipo do Círculo. Para custos diretos, é derivado de `holaspirit_circles`. Para descontos, é fixado como 'platform'."
+      - name: tag_name
+        description: "Tag de nome (`Name`). Retorna 'Not Tagged' para custos diretos. Para descontos, é preenchido com o valor de `parent_tag_name` da origem."
+      - name: tag_repository
+        description: "Tag de repositório. Retorna 'Not Tagged' para custos diretos. Para descontos, é preenchido com o valor de `parent_tag_repository` da origem."
+      - name: tag_product
+        description: "Tag de produto. Retorna 'Not Tagged' para custos diretos. Para descontos, é preenchido com o `parent_tag_product` da origem ou com um valor de um mapeamento interno."
+      - name: tag_management
+        description: "Tag de gerenciamento. Retorna 'Not Tagged' para custos diretos. Para descontos, é preenchido com o valor de `parent_tag_management` da origem."
+      - name: environment
+        description: "Ambiente do recurso. Copiado diretamente da coluna `environment` da tabela `silver_aws_eks_cost_usage_report`."
+      - name: usage_type
+        description: "Tipo de uso. Para custos diretos, é copiado da origem. Para descontos, é construído dinamicamente como 'Discount related to Kubernetes [cluster_name]'."
+      - name: pricing_term
+        description: "Termo de precificação. Copiado diretamente da coluna `pricing_term` da tabela `silver_aws_eks_cost_usage_report`."
+      - name: account_id
+        description: "ID da conta da AWS. Copiado diretamente da coluna `account_id` da tabela `silver_aws_eks_cost_usage_report`."
+      - name: account_name
+        description: "Nome da conta da AWS. Copiado diretamente da coluna `account_name` da tabela `silver_aws_eks_cost_usage_report`."
+      - name: region
+        description: "Região da AWS. Copiado diretamente da coluna `region` da tabela `silver_aws_eks_cost_usage_report`."
+      - name: split_cost
+        description: "Custo rateado. É um valor positivo (débito) para linhas de uso e um valor negativo (crédito) para linhas de desconto."
+      - name: unused_cost
+        description: "Custo não utilizado. É um valor positivo (débito) para linhas de uso e um valor negativo (crédito) para linhas de desconto."

@@ -1,0 +1,41 @@
+version: 2
+
+models:
+  - name: aux_datadog_costs_forecast
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Estimar (`forecast`) a distribuição dos custos do Datadog para meses futuros cuja fatura ainda não foi fechada (`invoice_status = 'estimated'`), projetando como os custos totais serão divididos entre os times.
+      **Escopo:** Inclui todos os custos de produtos Datadog com `invoice_status = 'estimated'`. A projeção de custos é calculada usando como base de rateio os dados de um período histórico fechado (atualmente fixado em Dezembro de 2024, conforme o SQL).
+      **Audiência:** Engenheiros de FinOps e Analistas Financeiros.
+      **Processo:** Os dados são derivados da tabela `datadog_costs`. A primeira etapa coleta o custo total por produto para os meses com faturas em estado de estimativa. A segunda etapa calcula as taxas de rateio (`rate`) de custo por time, usando como referência um período passado (Dezembro de 2024). Por fim, o custo projetado para cada time é calculado multiplicando o custo total estimado do mês futuro pela taxa de rateio histórica.
+      **Recorrência de atualização:** Diária, para refletir os custos estimados mais recentes.
+
+    tags: [silver, will, custos_cloud, forecast]
+
+    columns:
+      - name: start_date
+        description: "O primeiro dia do mês para o qual o custo está sendo estimado (meses com `invoice_status = 'estimated'`). Copiado da CTE `months_total`."
+      - name: service
+        description: "Valor fixo 'estimated' para identificar que a linha é uma estimativa gerada por este processo."
+      - name: circle_id
+        description: "ID do Círculo (time) que está recebendo a fração do custo estimado. O ID é herdado dos times que tiveram custos no período de referência (atualmente Dezembro de 2024)."
+      - name: circle_type
+        description: "Tipo do Círculo (ex. 'platform'). Herdado dos dados do período de referência."
+      - name: product_name
+        description: "Nome do produto Datadog ao qual o custo se refere. Usado como chave no `JOIN` entre os custos estimados e as taxas de rateio."
+      - name: product_group
+        description: "Grupo de produto do Datadog. Herdado dos dados do período de referência."
+      - name: billing_type
+        description: "Tipo de faturamento (ex. 'on_demand'). Usado como chave no `JOIN` entre os custos estimados e as taxas de rateio."
+      - name: invoice_status
+        description: "Status da fatura. Herdado dos dados do período de referência (Dezembro de 2024)."
+      - name: cost
+        description: "O valor do custo estimado, alocado para o time. Calculado como: `Custo Total Estimado do Mês Futuro * Taxa de Rateio do Período de Referência`."

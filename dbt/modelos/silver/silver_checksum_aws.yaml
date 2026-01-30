@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: silver_checksum_aws
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Garantir a integridade financeira e a consistência do pipeline de dados de custos da AWS, validando se os totais de custo permanecem os mesmos através das camadas Bronze, Staging e Silver, e que a soma das tabelas de consumo finais bate com o total consolidado.
+      **Escopo:** Agrega e compara custos de múltiplos pontos de verificação: `stg_checksum_aws`, `stg_aws_cost_usage_report`, `intermediate_aws_cost_usage_report`, `silver_aws_cost_usage_report`, e a soma das tabelas de consumo (`aws_costs_shared`, `aws_costs_support`, `aws_costs_usage`, `aws_costs_untagged`). Exclui explicitamente custos de Marketplace, EKS (`EKSPod-EC2`) e faturamento interno (`OCBAWS Brazil 2P`) para garantir uma comparação justa.
+      **Audiência:** Exclusivamente Engenheiros de Dados. Esta é a ferramenta principal para monitorar a saúde e a precisão do pipeline de ETL de custos da AWS.
+      **Processo:** O modelo calcula o custo como `unblended_cost + reservation_cost` para cada fonte. Os custos são agregados e agrupados por mês, `circle_id` e `aws_product_name`. Cada agregação é rotulada na coluna `table_name` para identificar sua origem. Um `UNION ALL` empilha todos os resultados para validação.
+      **Recorrência de atualização:** Diária.
+
+    tags: [silver, will, custos_cloud, checksum]
+
+    columns:
+      - name: start_date
+        description: "O primeiro dia do mês de referência para a soma de controle, geralmente agrupado com `DATE_TRUNC`. Originado de todas as tabelas fonte."
+      - name: table_name
+        description: "A tabela ou camada de origem do cálculo de custo, atribuída como um valor literal em cada CTE para identificar o ponto de verificação no pipeline (ex. 'stg_aws_cost_usage_report')."
+      - name: circle_id
+        description: "O ID do círculo de custo ao qual a despesa foi atribuída na respectiva camada. Originado de todas as tabelas fonte."
+      - name: aws_product_name
+        description: "O nome do produto da AWS, usado como uma das chaves de agrupamento. Originado de todas as tabelas fonte."
+      - name: cost
+        description: "O custo total agregado, calculado como `SUM(unblended_cost + reservation_cost)`. Este valor deve ser consistente entre as diferentes `table_name` para uma reconciliação bem-sucedida."

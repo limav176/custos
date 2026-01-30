@@ -1,0 +1,38 @@
+version: 2
+
+sources:
+  - name: custos_cloud_bronze
+    quoting:
+      database: true
+      schema: true
+      identifier: true
+
+    tables:
+      - name: aws_cost_usage_report
+      - name: datadog_cost_attribution
+      - name: mongodb_atlas_cost_usage_report
+      - name: rivery_holaspirit
+      - name: rivery_plateng_macro_costs_bronze
+      - name: labels_kubernetes_report
+      - name: cloudwatch_rds_report
+      - name: rds_instances_details
+      - name: fixed_upload_rds_prices
+
+  - name: datametrics_gold
+    quoting:
+      database: true
+      schema: true
+      identifier: true
+
+    tables:
+      - name: metricas_circulos_dia
+      - name: plataforma_metricas_uso
+
+  - name: notificacao_transacional_gold
+    quoting:
+      database: true
+      schema: true
+      identifier: true
+
+    tables:
+      - name: circle_notification_usage

@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: silver_checksum_datadog
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Validar a consistência e a integridade financeira de todo o pipeline de custos do Datadog, permitindo uma reconciliação completa entre a camada de origem e as tabelas finais da camada Silver.
+      **Escopo:** Coleta e unifica dados de seis fontes distintas: `stg_checksum_datadog` (origem), `datadog_costs` (total), `datadog_costs_shared`, `datadog_costs_usage`, e os modelos auxiliares `aux_datadog_costs_backfill` e `aux_datadog_costs_forecast`.
+      **Audiência:** Engenheiros de Dados e Analistas de FinOps.
+      **Processo:** O modelo coleta dados de seis fontes, garantindo que a soma dos custos de `datadog_costs_shared` e `datadog_costs_usage` seja igual ao total em `datadog_costs`. Utiliza `UNION ALL` para juntar todos os dados, adicionando uma coluna `table_name` para identificar a origem e permitir a comparação direta dos custos agregados.
+      **Recorrência de atualização:** Diária.
+
+    tags: [silver, will, custos_cloud, checksum]
+
+    columns:
+      - name: start_date
+        description: "A data de início do período de referência para o checksum, servindo como a principal chave de agregação temporal. Originado de todas as tabelas fonte."
+      - name: table_name
+        description: "A tabela de origem do registro de custo, atribuída como um valor literal em cada CTE (ex. 'datadog_costs', 'stg_checksum_datadog'). Este campo é crucial para comparar os valores entre as diferentes etapas do pipeline."
+      - name: circle_id
+        description: "O ID do Círculo (time) ao qual o custo foi atribuído, permitindo a validação da consistência na atribuição. Originado de todas as tabelas fonte."
+      - name: product_name
+        description: "O nome do produto Datadog, uma das chaves de negócio para a validação. Originado de todas as tabelas fonte."
+      - name: billing_type
+        description: "O tipo de faturamento, uma das chaves de negócio para a validação. Originado de todas as tabelas fonte."
+      - name: cost
+        description: "O valor do custo agregado, calculado como `SUM(cost)`. Para uma validação bem-sucedida, este valor deve ser consistente entre as diferentes `table_name` que representam o mesmo escopo de dados."

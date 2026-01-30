@@ -1,0 +1,39 @@
+version: 2
+
+models:
+  - name: plateng_macro_costs_silver
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Promover os dados de macro custos da engenharia de plataforma da camada Staging para a Silver, atuando como um 'snapshot' validado e confiável dos dados brutos para consumo em camadas superiores.
+      **Escopo:** Inclui todos os dados da tabela `stg_rivery_plateng_macro_costs_bronze` sem filtros ou exclusões. A tabela representa uma cópia exata da fonte.
+      **Audiência:** Engenheiros de Dados. É a fonte principal para modelos da camada Gold que analisam os custos de macro iniciativas da engenharia de plataforma.
+      **Processo:** A tabela é derivada diretamente de `stg_rivery_plateng_macro_costs_bronze` através de um `SELECT *`. Nenhuma transformação, agregação ou filtro é aplicado, garantindo que seja uma cópia 1-para-1 da origem. A alimentação dos dados na camada Staging é feita via Rivery.
+      **Recorrência de atualização:** A frequência de atualização é dependente da cadência de execução da fonte de dados na camada Staging, `stg_rivery_plateng_macro_costs_bronze`.
+
+    tags: [silver, will, custos_cloud, platform_engineering]
+
+    columns:
+      - name: team
+        description: "Nome do time de Platform Engineering responsável pela iniciativa. Fonte: `stg_rivery_plateng_macro_costs_bronze`."
+      - name: action
+        description: "Ação específica que gerou o custo ou a economia. Fonte: `stg_rivery_plateng_macro_costs_bronze`."
+      - name: status
+        description: "O estado atual da ação (ex. 'Concluído', 'Em andamento'). Fonte: `stg_rivery_plateng_macro_costs_bronze`."
+      - name: cost
+        description: "Valor do custo ou da economia associado à ação. Fonte: `stg_rivery_plateng_macro_costs_bronze`."
+      - name: month
+        description: "Mês de referência do registro. Fonte: `stg_rivery_plateng_macro_costs_bronze`."
+      - name: year
+        description: "Ano de referência do registro. Fonte: `stg_rivery_plateng_macro_costs_bronze`."
+      - name: date
+        description: "Data completa do registro. Fonte: `stg_rivery_plateng_macro_costs_bronze`."
+      - name: obs
+        description: "Campo de texto para observações adicionais. Fonte: `stg_rivery_plateng_macro_costs_bronze`."

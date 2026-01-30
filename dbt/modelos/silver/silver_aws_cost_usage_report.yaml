@@ -1,0 +1,83 @@
+version: 2
+
+models:
+  - name: silver_aws_cost_usage_report
+    meta:
+      domain: custos_cloud
+      layer: silver
+      schema: custos_cloud_silver
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Servir como o relatório consolidado e definitivo de custos e uso da AWS na camada Silver, funcionando como a fonte da verdade para todos os custos da AWS.
+      **Escopo:** Consolida todos os custos da AWS. Substitui os dados brutos de 'Amazon Relational Database Service' pela visão financeira completa e reconciliada do modelo `silver_aws_rds_costs`, unindo-os com os custos de todos os outros serviços da AWS.
+      **Audiência:** Engenheiros de Dados e Analistas de FinOps. É a principal fonte para as tabelas de categorização de custos subsequentes (ex. `aws_costs_usage`, `aws_costs_shared`).
+      **Processo:** O modelo é construído unindo duas fontes de dados com `UNION ALL`. A primeira parte seleciona todos os registros de `intermediate_aws_cost_usage_report` exceto os de `aws_product_name` = 'Amazon Relational Database Service'. A segunda parte seleciona todos os registros do modelo `silver_aws_rds_costs`, que contém a visão especializada de custos de RDS.
+      **Recorrência de atualização:** Diária.
+
+    tags: [silver, will, custos_cloud]
+
+    columns:
+      - name: start_date
+        description: "Data de início do período de faturamento. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: resource_id
+        description: "Identificador único do recurso na AWS. Para custos de RDS, este valor é originado de `silver_aws_rds_costs` e pode conter valores sintéticos. Para outros serviços, origina-se de `intermediate_aws_cost_usage_report`."
+      - name: description
+        description: "Descrição do item de linha. Para custos de RDS, este valor é originado de `silver_aws_rds_costs` e pode conter descrições detalhadas geradas pelo processo de reconciliação."
+      - name: aws_product_name
+        description: "Nome do produto da AWS. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: circle_id
+        description: "ID do Círculo de custo atribuído. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: providedby_id
+        description: "ID do provedor do Círculo. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: circle_id_source
+        description: "Fonte usada para determinar o `circle_id`. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: tag_repository
+        description: "Valor da tag 'repository'. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: tag_product
+        description: "Valor da tag 'product'. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: tag_management
+        description: "Valor da tag 'management'. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: tag_name
+        description: "Valor da tag 'name'. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: tag_policy_compliant
+        description: "Indica se o recurso está em conformidade com a política de tagueamento. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: tag_policy_compliant_actual
+        description: "Indica a conformidade de tagueamento no momento do uso. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: billing_origin
+        description: "Origem da cobrança. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: item_type
+        description: "Tipo do item de linha. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: account_id
+        description: "ID da conta da AWS. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: account_name
+        description: "Nome da conta da AWS. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: region
+        description: "Região da AWS. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: environment
+        description: "Ambiente do recurso. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: usage_type
+        description: "Tipo de uso faturado. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: instance_type
+        description: "Tipo da instância. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: multi_az
+        description: "Indica se a configuração é Multi-AZ. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: engine
+        description: "Motor de banco de dados (relevante para RDS). Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: pricing_term
+        description: "Termo de precificação. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: unblended_cost
+        description: "Custo bruto. Para custos de RDS, este valor é originado de `silver_aws_rds_costs` e pode conter valores negativos (economia) ou de reconciliação."
+      - name: reservation_cost
+        description: "Custo de reserva. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: reservation_start_time
+        description: "Início da reserva. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: reservation_end_time
+        description: "Fim da reserva. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: reservation_net_effective_cost
+        description: "Custo efetivo líquido da reserva. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
+      - name: reservation_amortized_upfront_cost
+        description: "Custo inicial amortizado da reserva. Originado de `intermediate_aws_cost_usage_report` ou `silver_aws_rds_costs`."
