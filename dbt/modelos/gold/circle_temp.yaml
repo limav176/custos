@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: circle_temp
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:**
+      Atuar como uma tabela de agregação intermediária (`temp`). Sua função é unificar todos os custos mensais de todos os provedores (AWS, MongoDB Atlas, Datadog) em um único formato padronizado.
+
+      **Escopo e Lógica:**
+      A tabela usa `UNION ALL` para combinar sistematicamente os dados de várias tabelas de custo da camada Gold.
+      - **Fontes de Dados:**
+        - `gold.aws_costs_month_*` (usage, untagged, support, shared)
+        - `gold.mongodb_atlas_costs_month_*` (support, usage)
+        - `gold.datadog_costs_month_*` (shared, usage)
+      - **Lógica Principal:**
+        - Para cada fonte, a query seleciona as colunas chave (`start_date`, `circle_id`, `cost`).
+        - Uma coluna `origin` é adicionada em cada bloco `SELECT` para identificar o provedor (ex. 'AWS', 'Datadog').
+        - Uma coluna `type` é adicionada para identificar a categoria do custo (ex. 'usage', 'support').
+        - Os custos são então agrupados por `origin`, `start_date`, `circle_id`, e `type`.
+      - O resultado é uma tabela longa e limpa que serve como base para o próximo passo de processamento na tabela `circle_temp_2`.
+
+      **Audiência:**
+      Exclusivamente para Engenheiros de Dados. Esta tabela é um passo intermediário e não se destina ao consumo final.
+
+      **Processo:**
+      A tabela é reconstruída diariamente como parte do fluxo que leva à tabela final `circle_month`.
+
+      **Recorrência:**
+      Diária.
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: origin
+        description: "Coluna estática que identifica o provedor de serviço ao qual o custo se refere. Preenchida com 'AWS', 'MongoDB Atlas' ou 'Datadog' dependendo da fonte de dados de origem."
+      - name: start_date
+        description: "O primeiro dia do mês de referência para o custo. Herdado diretamente das tabelas de custo mensais de origem (ex. `aws_costs_month_usage`)."
+      - name: circle_id
+        description: "O ID do Círculo (time) associado ao custo. Herdado diretamente das tabelas de custo mensais de origem."
+      - name: type
+        description: "Categoria do custo, definida estaticamente como 'usage', 'support', 'shared' ou 'untagged' dependendo da tabela de origem. Para Datadog, a lógica é condicional baseada no `invoice_status`."
+      - name: cost
+        description: "O valor monetário mensal agregado. Calculado como `SUM(cost)` agrupado por todas as outras dimensões para cada fonte de dados."

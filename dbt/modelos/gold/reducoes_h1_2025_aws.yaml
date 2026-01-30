@@ -1,0 +1,79 @@
+version: 2
+
+models:
+  - name: reducoes_h1_2025_aws
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:**
+      Quantificar a economia de custos em recursos AWS (excluindo EKS), comparando o custo real diário com uma linha de base estática. Esta tabela é a fonte principal para medir o impacto de iniciativas de otimização de custos.
+      **Escopo:**
+      Inclui todos os recursos AWS faturados diariamente. O baseline é calculado com base na média de custos de dezembro de 2024. A análise de custo real começa a partir de 1º de janeiro de 2025.
+      **Audiência:**
+      Analistas de FinOps e Engenheiros de Dados. É uma tabela intermediária, consumida principalmente pelo modelo `reducoes_h1_2025`.
+      **Processo:**
+      Os custos diários de dezembro de 2024, originados de `silver.aws_costs_day_usage`, são agregados para calcular um custo médio diário por recurso, que serve como 'baseline_cost'. Este baseline é projetado para cada dia do período de análise. O custo real ('actual_cost') é calculado para cada dia a partir de janeiro de 2025. As duas visões são unidas por um `FULL JOIN` para permitir a comparação e a análise de recursos novos ou desativados.
+      **Recorrência de atualização:**
+      Diária.
+
+    tags: [gold, will, custos_cloud, finops, savings, baseline]
+
+    columns:
+      - name: start_date
+        description: "A data diária de referência para a comparação de custos. Derivada da união das datas dos custos reais e do baseline."
+        tags: []
+      - name: resource_id
+        description: "O ID único do recurso AWS associado ao custo. Chave de junção principal entre o custo real e o baseline."
+        tags: []
+      - name: aws_product_name
+        description: "O nome do produto AWS (ex. 'Amazon S3') associado ao custo. Derivado da fonte `silver.aws_costs_day_usage`."
+        tags: []
+      - name: circle_id
+        description: "O ID do círculo (time) associado ao custo. Derivado da fonte `silver.aws_costs_day_usage`."
+        tags: []
+      - name: providedby_id
+        description: "O ID do provedor do círculo. Derivado da fonte `silver.aws_costs_day_usage`."
+        tags: []
+      - name: tag_repository
+        description: "A tag de repositório associada ao recurso. Derivada da fonte `silver.aws_costs_day_usage`."
+        tags: []
+      - name: tag_product
+        description: "A tag de produto associada ao recurso. Derivada da fonte `silver.aws_costs_day_usage`."
+        tags: []
+      - name: tag_management
+        description: "A tag de gerenciamento associada ao recurso. Derivada da fonte `silver.aws_costs_day_usage`."
+        tags: []
+      - name: tag_name
+        description: "A tag de nome associada ao recurso. Derivada da fonte `silver.aws_costs_day_usage`."
+        tags: []
+      - name: environment
+        description: "O ambiente do recurso (ex. 'production', 'development'). Derivado da fonte `silver.aws_costs_day_usage`."
+        tags: []
+      - name: usage_type
+        description: "O tipo de uso específico que gerou o custo. Derivado da fonte `silver.aws_costs_day_usage`."
+        tags: []
+      - name: pricing_term
+        description: "O termo de precificação (ex. 'OnDemand', 'Reserved'). Derivado da fonte `silver.aws_costs_day_usage`."
+        tags: []
+      - name: account_id
+        description: "O ID da conta da AWS onde o custo foi incorrido. Derivado da fonte `silver.aws_costs_day_usage`."
+        tags: []
+      - name: account_name
+        description: "O nome legível da conta da AWS. Derivado da fonte `silver.aws_costs_day_usage`."
+        tags: []
+      - name: region
+        description: "A região da AWS onde o recurso está localizado. Derivado da fonte `silver.aws_costs_day_usage`."
+        tags: []
+      - name: actual_cost
+        description: "O custo real e observado do recurso para a `start_date`, agregado a partir de `silver.aws_costs_day_usage` de janeiro de 2025 em diante."
+        tags: []
+      - name: baseline_cost
+        description: "O custo de linha de base projetado para a `start_date`. Calculado como a média diária dos custos do recurso em dezembro de 2024."
+        tags: []

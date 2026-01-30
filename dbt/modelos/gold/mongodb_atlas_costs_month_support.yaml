@@ -1,0 +1,34 @@
+version: 2
+
+models:
+  - name: mongodb_atlas_costs_month_support
+    description: >
+      **Propósito:** Alocar o custo mensal compartilhado do plano de Suporte do MongoDB Atlas entre os diversos Círculos (times), de forma proporcional ao consumo de recursos de cada um na plataforma.
+      **Escopo:** Inclui apenas os custos de suporte, que são rateados. Não inclui custos diretos de uso, que são usados apenas como base para o cálculo da proporção. O rateio é feito para todos os Círculos que tiveram consumo no mês.
+      **Audiência:** Equipes de FinOps e líderes de Círculos, que utilizam esta tabela para entender a composição completa dos seus custos de MongoDB Atlas, incluindo despesas compartilhadas.
+      **Processo:** Os dados são derivados de `silver.mongodb_atlas_costs_support` (para o custo total de suporte) e `gold.mongodb_atlas_costs_month_usage` (para a base de cálculo do rateio). A lógica calcula primeiro o custo total de suporte, depois calcula a taxa de uso de cada Círculo em relação ao total e, por fim, multiplica o custo de suporte pela taxa de cada Círculo para alocar o valor correspondente.
+      **Recorrência de atualização:** Mensal.
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: start_date
+        description: "Primeiro dia do mês de referência do custo, usado como chave de junção entre o custo total de suporte e as taxas de rateio."
+      - name: end_date
+        description: "Último dia do mês de referência do custo, usado como chave de junção."
+      - name: sku
+        description: "SKU do item de linha faturado, relacionado a suporte (ex. 'ATLAS_SUPPORT'). Proveniente da agregação de custos de suporte."
+      - name: circle_id
+        description: "ID do Círculo (time) que está recebendo a fração do custo de suporte, com base em seu percentual de uso."
+      - name: cost
+        description: "Valor monetário do custo de suporte alocado ao círculo. Calculado como `custo_total_suporte * taxa_de_uso_do_circulo`."

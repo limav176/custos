@@ -1,0 +1,74 @@
+version: 2
+
+models:
+  - name: plateng_notify_costs_day_usage
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:**
+      Calcular e alocar os custos diários de notificação (Email e SMS) para a granularidade de `circle_id`, `journey` e `template`. O objetivo é fornecer uma visão de custos precisa, rateando os custos de infraestrutura (AWS SES) e aplicando custos diretos (Twilio) com base no uso real.
+
+      **Escopo e Lógica:**
+      A tabela implementa uma lógica de rateio de custos que distingue entre diferentes tipos de notificação e seus componentes de custo.
+      - **Fontes de Dados:**
+        - `notificacao_transacional_gold.circle_notification_usage`: Fornece a quantidade de notificações enviadas por `circle_id`, `journey`, e `template`.
+        - `silver.aws_costs_day_usage`: Fornece os custos brutos do serviço AWS SES, que são a base para o rateio do custo de e-mail.
+        - `gold.circles`: Usada para validar e filtrar apenas `circle_id` existentes.
+      - **Lógica Principal:**
+        1. **Preparação do Uso (`source` e `usage`):**
+           - Os dados de uso são lidos e normalizados (ex. `email_with_attachment` vira `EMAIL` + flag `has_attachment`).
+           - Usando funções de janela, a query calcula duas taxas de rateio diárias:
+             - `send_daily_usage`: Proporção de envios de um template em relação ao total de envios do mesmo tipo (ex. % de todos os emails).
+             - `attach_daily_usage`: Proporção de envios de um template com anexo em relação ao total de envios com anexo.
+        2. **Cálculo de Custos de Email (`costs`):**
+           - A query agrega os custos de AWS SES, separando-os em duas "caixinhas": `attach_daily_cost` (custo total de anexos no dia) e `send_daily_cost` (custo total de envios base no dia).
+        3. **Alocação Final:**
+           - **Email com Anexo:** `custo = (send_daily_usage * send_daily_cost) + (attach_daily_usage * attach_daily_cost)`. O custo é a soma do rateio do custo de envio e do rateio do custo de anexo.
+           - **Email sem Anexo:** `custo = send_daily_usage * send_daily_cost`. O custo é apenas o rateio do custo de envio.
+           - **SMS:** `custo = send_qty * custo_unitario_fixo`. O custo de SMS é direto, baseado em um valor hardcoded na query que representa o preço do provedor (Twilio) convertido de dólar.
+
+      **Audiência:**
+      Engenheiros de FinOps, Product Managers e líderes de Círculos que precisam entender os custos detalhados associados às notificações de seus produtos.
+
+      **Processo:**
+      Diariamente, a query recalcula as taxas de uso, agrega os custos de infraestrutura do dia anterior e aplica a lógica de rateio para gerar os custos alocados.
+
+      **Recorrência:**
+      Diária.
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: start_date
+        description: "Data do envio da notificação e do custo associado. Campo originado da fonte `notificacao_transacional_gold.circle_notification_usage`."
+        tags: []
+      - name: circle_id
+        description: "ID do círculo responsável pelo envio da notificação. Campo originado da fonte `notificacao_transacional_gold.circle_notification_usage`."
+        tags: []
+      - name: journey
+        description: "Nome da jornada de notificação (ex. 'cash-in', 'pix'). Campo originado da fonte `notificacao_transacional_gold.circle_notification_usage`."
+        tags: []
+      - name: template
+        description: "Nome do template específico usado na notificação. Campo originado da fonte `notificacao_transacional_gold.circle_notification_usage`."
+        tags: []
+      - name: type
+        description: "Tipo de notificação. Calculado via `CASE WHEN` para normalizar 'email_with_attachment' para 'EMAIL_WITH_ATTACHMENT' e manter os demais."
+        tags: []
+      - name: send_qty
+        description: "Quantidade total de envios para a combinação de círculo/jornada/template no dia. Calculado via `SUM(qty)` particionado por dia, círculo, jornada, template e tipo."
+        tags: []
+      - name: attach_qty
+        description: "Quantidade de envios com anexo para a combinação de círculo/jornada/template no dia. Será 0 se não houver anexo. Calculado via `SUM(qty)`."
+        tags: []
+      - name: cost
+        description: "Custo diário alocado. Calculado via `CASE WHEN`. Para Email, usa o rateio do custo total do AWS SES. Para SMS, multiplica `send_qty` por um custo unitário fixo."
+        tags: []

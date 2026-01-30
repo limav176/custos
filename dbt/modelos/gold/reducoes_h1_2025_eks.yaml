@@ -1,0 +1,58 @@
+version: 2
+
+models:
+  - name: reducoes_h1_2025_eks
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:**
+      Quantificar a economia de custos em recursos EKS, comparando o custo real diário com uma linha de base estática. Esta tabela é a fonte principal para medir o impacto de iniciativas de otimização de custos em Kubernetes.
+      **Escopo:**
+      Inclui todos os custos de EKS agregados por namespace, cluster, ambiente, conta, região e círculo. O baseline é calculado com base na média de custos de dezembro de 2024. A análise de custo real começa a partir de 1º de janeiro de 2025.
+      **Audiência:**
+      Analistas de FinOps, Engenheiros de Plataforma e SREs. É uma tabela intermediária, consumida principalmente pelo modelo `reducoes_h1_2025`.
+      **Processo:**
+      Os custos diários de dezembro de 2024, originados de `silver.aws_eks_costs_day_usage`, são agregados para calcular um custo médio diário por recurso, que serve como 'baseline_cost'. Este baseline é projetado para cada dia do período de análise. O custo real ('actual_cost') é calculado para cada dia a partir de janeiro de 2025. As duas visões são unidas por um `FULL JOIN` para permitir a comparação.
+      **Recorrência de atualização:**
+      Diária.
+
+    tags: [gold, will, custos_cloud, finops, savings, baseline, eks]
+
+    columns:
+      - name: start_date
+        description: "A data diária de referência para a comparação de custos. Derivada da união das datas dos custos reais e do baseline."
+        tags: []
+      - name: namespace
+        description: "O namespace do Kubernetes associado ao custo. Chave de junção entre o custo real e o baseline."
+        tags: []
+      - name: cluster_name
+        description: "O nome do cluster EKS associado ao custo. Derivado da fonte `silver.aws_eks_costs_day_usage`."
+        tags: []
+      - name: environment
+        description: "O ambiente do recurso (ex. 'production', 'development'). Derivado da fonte `silver.aws_eks_costs_day_usage`."
+        tags: []
+      - name: account_id
+        description: "O ID da conta da AWS onde o cluster está localizado. Derivado da fonte `silver.aws_eks_costs_day_usage`."
+        tags: []
+      - name: account_name
+        description: "O nome legível da conta da AWS. Derivado da fonte `silver.aws_eks_costs_day_usage`."
+        tags: []
+      - name: region
+        description: "A região da AWS onde o cluster está localizado. Derivado da fonte `silver.aws_eks_costs_day_usage`."
+        tags: []
+      - name: circle_id
+        description: "O ID do círculo (time) ao qual o custo do recurso EKS foi atribuído. Derivado da fonte `silver.aws_eks_costs_day_usage`."
+        tags: []
+      - name: actual_cost
+        description: "O custo real e observado do recurso EKS para a `start_date`. Calculado como `SUM(split_cost + unused_cost)` a partir de janeiro de 2025."
+        tags: []
+      - name: baseline_cost
+        description: "O custo de linha de base projetado para a `start_date`. Calculado como a média diária dos custos do recurso EKS em dezembro de 2024."
+        tags: []

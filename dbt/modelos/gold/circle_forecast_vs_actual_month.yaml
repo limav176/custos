@@ -1,0 +1,39 @@
+version: 2
+
+models:
+  - name: circle_forecast_vs_actual_month
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Criar a tabela principal para o controle orçamentário (`Budget Control`), comparando diretamente os custos previstos (`forecast`) com os custos reais (`actual`) para cada Círculo de Nível 1 (tribo) e provedor (origem).
+      **Escopo:** A análise abrange todos os meses e tribos para os quais existe um custo real (`circle_month`) ou um custo previsto (`circle_forecast_month`). O uso de `FULL JOIN` garante que nenhum período seja omitido se tiver apenas um dos dois valores.
+      **Audiência:** Gestores financeiros, líderes de tribo (N1) e Analistas de FinOps. É a ferramenta central para acompanhar o desempenho do orçamento e identificar desvios.
+      **Processo:** A tabela é construída a partir da junção completa (`FULL OUTER JOIN`) entre os dados de custo real de `circle_month` e os dados de custo previsto de `circle_forecast_month`. A junção é feita pelas chaves `origin`, `n1_circle_name` e `month`. As funções `COALESCE` são usadas para tratar valores nulos e garantir que as chaves e os custos sejam preenchidos corretamente.
+      **Recorrência de atualização:** Diária.
+
+    tags: [gold, will, custos_cloud, finops, forecast, budget, actual]
+
+    columns:
+      - name: origin
+        description: "O provedor de serviço (ex. 'AWS', 'Datadog'). É uma das chaves de junção entre o custo real e o previsto."
+      - name: n1_circle_name
+        description: "O nome do Círculo de Nível 1 (tribo). É a principal dimensão de agrupamento para a análise orçamentária."
+      - name: month
+        description: "O mês de referência para a comparação de custos. É a principal chave de junção temporal."
+      - name: actual_cost
+        description: "O custo real e efetivo incorrido no `month`, agregado por tribo e provedor."
+      - name: forecast_cost
+        description: "O custo previsto (orçamento) para o `month`, proveniente da tabela estática `circle_forecast_month`."
+      - name: previous_month
+        description: "O mês anterior ao `month`, para referência de tendências. A chave é preenchida a partir de ambas as fontes (`actual` e `forecast`)."
+      - name: actual_previous_cost
+        description: "O custo real e efetivo incorrido no `previous_month`, permitindo uma análise de variação MoM do custo real."
+      - name: forecast_previous_cost
+        description: "O custo previsto (orçamento) para o `previous_month`, proveniente da tabela `circle_forecast_month`."

@@ -1,0 +1,72 @@
+version: 2
+
+models:
+  - name: plateng_macro_costs
+    description: |
+      **Propósito:**
+      Promover os dados de macro custos da engenharia de plataforma, da camada Silver para a Gold. O objetivo é sinalizar que os dados estão validados, governados e prontos para consumo final em ferramentas de BI, dashboards e análises de alto nível.
+
+      **Escopo e Lógica:**
+      Este é um modelo de "passagem" (pass-through).
+      - **Fonte de Dados:**
+        - `silver.plateng_macro_costs_silver`: Tabela da camada Silver que contém os dados de origem.
+      - **Lógica Principal:**
+        - A query é um simples `SELECT *` da tabela de origem.
+        - Não há nenhuma transformação, filtro ou agregação. É uma cópia 1-para-1 dos dados, garantindo que a camada Gold reflita exatamente a fonte confiável da Silver.
+
+      **Audiência:**
+      Líderes de Engenharia, Analistas de FinOps e Product Managers que precisam de uma visão consolidada sobre os custos, economias e oportunidades geradas pelas iniciativas da Engenharia de Plataforma.
+
+      **Processo:**
+      A atualização desta tabela é diretamente dependente da atualização da `plateng_macro_costs_silver`.
+
+      **Recorrência:**
+      Depende da fonte.
+
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: team
+        description: "Nome do time de Platform Engineering responsável pela iniciativa. Copiado diretamente da coluna `team` da tabela `plateng_macro_costs_silver`."
+        tags: []
+      - name: domain
+        description: "Domínio de negócio ou técnico relacionado ao custo (ex. 'Observability', 'Security'). Copiado diretamente da coluna `domain` da tabela `plateng_macro_costs_silver`."
+        tags: []
+      - name: action
+        description: "Ação específica que gerou o custo ou a economia. Copiado diretamente da coluna `action` da tabela `plateng_macro_costs_silver`."
+        tags: []
+      - name: date
+        description: "Data em que a ação ocorreu ou foi registrada. Copiado diretamente da coluna `date` da tabela `plateng_macro_costs_silver`."
+        tags: []
+      - name: product
+        description: "Produto ou serviço relacionado à ação (ex. 'Datadog', 'AWS'). Copiado diretamente da coluna `product` da tabela `plateng_macro_costs_silver`."
+        tags: []
+      - name: cost
+        description: "Valor do custo incorrido pela ação. Copiado diretamente da coluna `cost` da tabela `plateng_macro_costs_silver`."
+        tags: []
+      - name: saving_opportunity
+        description: "Valor da oportunidade de economia que foi identificada. Copiado diretamente da coluna `saving_opportunity` da tabela `plateng_macro_costs_silver`."
+        tags: []
+      - name: saving
+        description: "Valor que foi efetivamente economizado como resultado da ação. Copiado diretamente da coluna `saving` da tabela `plateng_macro_costs_silver`."
+        tags: []
+      - name: status
+        description: "O estado atual da ação (ex. 'Concluído', 'Em andamento'). Copiado diretamente da coluna `status` da tabela `plateng_macro_costs_silver`."
+        tags: []
+      - name: card
+        description: "O nome ou identificador do card em uma ferramenta de gestão de projetos (ex. Trello, Jira). Copiado diretamente da coluna `card` da tabela `plateng_macro_costs_silver`."
+        tags: []
+      - name: cardlink
+        description: "O link direto para o card na ferramenta de gestão de projetos. Copiado diretamente da coluna `cardlink` da tabela `plateng_macro_costs_silver`."
+        tags: []

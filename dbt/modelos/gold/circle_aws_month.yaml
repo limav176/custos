@@ -1,0 +1,60 @@
+version: 2
+
+models:
+  - name: circle_aws_month
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:**
+      Fornecer uma visão de "fatura comparativa" mensal dos custos de uso da AWS, detalhada por Círculo, Ambiente, Conta e Produto. A tabela permite que cada time analise a evolução de seus gastos diretos, comparando o mês atual com o anterior.
+
+      **Escopo e Lógica:**
+      A tabela foca exclusivamente nos custos de uso e utiliza uma lógica de `self-join` para a comparação temporal.
+      - **Fonte de Dados:**
+        - `gold.aws_costs_month_usage`: A tabela consolidada de custos de uso mensais da AWS.
+      - **Lógica Principal:**
+        1. **Agregação (`month` CTE):** Os custos da tabela de origem são agrupados para garantir uma linha por mês, círculo, ambiente, conta e produto.
+        2. **Comparação Mês a Mês (`FULL OUTER JOIN`):**
+           - A CTE `month` é juntada com ela mesma. Uma instância representa o "mês atual" (`current_month`) e a outra, o "mês anterior" (`prev_month`).
+           - A condição de `JOIN` (`current_month.start_date - interval '1' month = prev_month.start_date`) alinha os registros do mesmo recurso entre os dois meses.
+           - O `FULL OUTER JOIN` e o uso de `COALESCE` garantem que a tabela inclua custos que são novos ou que foram descontinuados, fornecendo uma visão completa da variação.
+
+      **Audiência:**
+      Líderes de Círculos, Product Managers e Engenheiros de FinOps que precisam de uma visão detalhada da evolução dos custos de uso direto da AWS para cada time.
+
+      **Processo:**
+      A tabela é reconstruída diariamente, atualizando as comparações mensais.
+
+      **Recorrência:**
+      Diária.
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: circle_id
+        description: "O ID do Círculo (time) associado ao custo."
+      - name: environment
+        description: "O ambiente de execução (ex. 'production', 'development')."
+      - name: account_id
+        description: "O ID da conta da AWS onde o custo foi incorrido."
+      - name: account_name
+        description: "O nome da conta da AWS."
+      - name: aws_product_name
+        description: "O nome do produto ou serviço da AWS que gerou o custo."
+      - name: month
+        description: "O mês de referência para o `cost` (custo do mês corrente)."
+      - name: cost
+        description: "O valor monetário total do custo para o `month`."
+      - name: previous_month
+        description: "O mês anterior, para referência do `previous_cost`."
+      - name: previous_cost
+        description: "O valor monetário total do custo para o `previous_month`, permitindo a comparação direta."

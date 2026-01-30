@@ -1,0 +1,65 @@
+version: 2
+
+models:
+  - name: datadog_costs_month
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:**
+      Criar uma "fatura" mensal detalhada e comparativa para todos os custos do Datadog. A tabela consolida os custos de uso (diretos) e compartilhados (rateados), apresentando o custo do mês atual e do mês anterior lado a lado para facilitar a análise de variação.
+
+      **Escopo e Lógica:**
+      A tabela primeiramente unifica os custos e depois aplica uma lógica de `self-join` para a comparação temporal.
+      - **Fontes de Dados:**
+        - `gold.datadog_costs_month_usage`: Contém os custos de uso direto.
+        - `gold.datadog_costs_month_shared`: Contém os custos compartilhados já rateados.
+      - **Lógica Principal:**
+        1. **`month` CTE:** Unifica os custos de uso e compartilhados com `UNION ALL` para criar uma visão de custo total por Círculo.
+        2. **Self `FULL OUTER JOIN`:** A consulta final une a tabela de custos totais com ela mesma, deslocada em um mês (`current_month.start_date - interval '1' month = prev_month.start_date`). A junção é feita em todas as chaves dimensionais (`service`, `circle_id`, `product_name`, etc.).
+        3. **`COALESCE`:** É usado extensivamente para garantir que as chaves de junção e os valores de custo sejam preenchidos corretamente, mesmo quando não há correspondência no `JOIN`, o que permite rastrear custos novos ou descontinuados.
+
+      **Audiência:**
+      Engenheiros de FinOps e líderes de Círculos que precisam de uma visão detalhada da evolução dos custos do Datadog para cada serviço e time.
+
+      **Processo:**
+      A tabela é reconstruída diariamente, atualizando as comparações mensais.
+
+      **Recorrência:**
+      Diária.
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: service
+        description: "Nome do serviço/time interno associado ao custo. Usado como chave de junção. O `COALESCE` garante que o campo seja preenchido se o custo existir no mês atual ou no anterior."
+      - name: circle_id
+        description: "ID do Círculo (time) associado ao custo. Usado como chave de junção. O `COALESCE` garante que o campo seja preenchido, com um valor padrão para registros órfãos."
+      - name: circle_type
+        description: "Tipo do Círculo. Usado como chave de junção. O `COALESCE` garante que o campo seja preenchido se o custo existir no mês atual ou no anterior."
+      - name: original_product_name
+        description: "Nome original do produto Datadog. Usado como chave de junção. O `COALESCE` garante que o campo seja preenchido se o custo existir no mês atual ou no anterior."
+      - name: product_name
+        description: "Nome do produto Datadog, pode ser 'shared' para custos rateados. Usado como chave de junção. O `COALESCE` garante que o campo seja preenchido."
+      - name: product_group
+        description: "Agrupamento de alto nível do produto. Usado como chave de junção. O `COALESCE` garante que o campo seja preenchido."
+      - name: billing_type
+        description: "Tipo de faturamento (ex. 'on-demand'). Usado como chave de junção. O `COALESCE` garante que o campo seja preenchido."
+      - name: invoice_status
+        description: "Status da fatura. Usado como chave de junção. O `COALESCE` garante que o campo seja preenchido."
+      - name: month
+        description: "Mês de referência para o `cost`. Calculado a partir de `current_month.start_date` ou inferido como um mês após `prev_month.start_date`."
+      - name: cost
+        description: "Valor monetário total do custo (uso + rateado) para o `month`. O `COALESCE` garante que o valor seja `0` se não houver custo no mês corrente."
+      - name: previous_month
+        description: "Mês de referência para o `previous_cost`. Calculado a partir de `prev_month.start_date` ou inferido como um mês antes de `current_month.start_date`."
+      - name: previous_cost
+        description: "Valor monetário total do custo no `previous_month`. O `COALESCE` garante que o valor seja `0` se não havia custo no mês anterior."

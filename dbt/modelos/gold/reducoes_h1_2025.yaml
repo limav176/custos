@@ -1,0 +1,88 @@
+version: 2
+
+models:
+  - name: reducoes_h1_2025
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:**
+      Centralizar e categorizar os dados de economia de custos do H1 2025. Este modelo atua como um motor de regras de negócio, atribuindo cada linha de custo (real vs. baseline) a uma iniciativa de otimização específica, permitindo medir o progresso e o ROI de cada ação de FinOps.
+      **Escopo:**
+      Unifica os dados de `reducoes_h1_2025_aws` e `reducoes_h1_2025_eks`. A análise considera apenas dados a partir de 1º de janeiro de 2025. A classificação de iniciativas (`initiative`) é baseada em um conjunto de regras que inspecionam tags, nomes de recursos, namespaces e contas.
+      **Audiência:**
+      Liderança, Analistas de FinOps e Engenheiros responsáveis pelas metas de redução de custos. É a fonte primária para dashboards e relatórios de acompanhamento de economias.
+      **Processo:**
+      Os dados das fontes de AWS e EKS são unidos via `UNION ALL`. Uma expressão `CASE WHEN` funciona como o motor de regras, analisando múltiplos atributos de cada registro (ex. `tag_name`, `namespace`, `account_name`) para atribuir a `initiative` correspondente.
+      **Recorrência de atualização:**
+      Diária.
+
+    tags: [gold, will, custos_cloud, finops, savings, baseline, initiative]
+
+    columns:
+      - name: start_date
+        description: "A data de referência do custo. Originada de `reducoes_h1_2025_aws` ou `reducoes_h1_2025_eks`."
+        tags: []
+      - name: resource_id
+        description: "ID único do recurso AWS. Vazio para registros originados do EKS. Originado de `reducoes_h1_2025_aws`."
+        tags: []
+      - name: namespace
+        description: "Namespace do Kubernetes. Vazio para registros originados da AWS. Originado de `reducoes_h1_2025_eks`."
+        tags: []
+      - name: cluster_name
+        description: "Nome do cluster EKS. Vazio para registros originados da AWS. Originado de `reducoes_h1_2025_eks`."
+        tags: []
+      - name: aws_product_name
+        description: "Nome do produto da AWS. Vazio para registros originados do EKS. Originado de `reducoes_h1_2025_aws`."
+        tags: []
+      - name: circle_id
+        description: "ID do Círculo (time) associado ao custo. Originado de `reducoes_h1_2025_aws` ou `reducoes_h1_2025_eks`."
+        tags: []
+      - name: providedby_id
+        description: "ID do provedor do Círculo. Originado de `reducoes_h1_2025_aws`."
+        tags: []
+      - name: tag_repository
+        description: "Tag de repositório associada ao recurso. Originado de `reducoes_h1_2025_aws`."
+        tags: []
+      - name: tag_product
+        description: "Tag de produto associada ao recurso. Originado de `reducoes_h1_2025_aws`."
+        tags: []
+      - name: tag_management
+        description: "Tag de gerenciamento associada ao recurso. Originado de `reducoes_h1_2025_aws`."
+        tags: []
+      - name: tag_name
+        description: "Tag de nome (`Name`) associada ao recurso. Originado de `reducoes_h1_2025_aws`."
+        tags: []
+      - name: environment
+        description: "Ambiente (ex. 'production', 'development'). Originado de `reducoes_h1_2025_aws` ou `reducoes_h1_2025_eks`."
+        tags: []
+      - name: usage_type
+        description: "O tipo de uso faturado pela AWS. Originado de `reducoes_h1_2025_aws`."
+        tags: []
+      - name: pricing_term
+        description: "O termo de precificação (ex. 'OnDemand', 'Reserved'). Originado de `reducoes_h1_2025_aws`."
+        tags: []
+      - name: account_id
+        description: "ID da conta da AWS. Originado de `reducoes_h1_2025_aws` ou `reducoes_h1_2025_eks`."
+        tags: []
+      - name: account_name
+        description: "Nome da conta da AWS. Originado de `reducoes_h1_2025_aws` ou `reducoes_h1_2025_eks`."
+        tags: []
+      - name: region
+        description: "Região da AWS. Originado de `reducoes_h1_2025_aws` ou `reducoes_h1_2025_eks`."
+        tags: []
+      - name: actual_cost
+        description: "O custo real do recurso para a `start_date`. Originado de `reducoes_h1_2025_aws` ou `reducoes_h1_2025_eks`."
+        tags: []
+      - name: baseline_cost
+        description: "O custo de linha de base, projetado para a `start_date` a partir da média de Dezembro de 2024. Originado de `reducoes_h1_2025_aws` ou `reducoes_h1_2025_eks`."
+        tags: []
+      - name: initiative
+        description: "O nome da iniciativa de redução de custos atribuída pelo motor de regras `CASE WHEN`. É a categoria que agrupa as economias."
+        tags: []

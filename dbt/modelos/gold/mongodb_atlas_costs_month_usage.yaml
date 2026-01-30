@@ -1,0 +1,38 @@
+version: 2
+
+models:
+  - name: mongodb_atlas_costs_month_usage
+    description: >
+      **Propósito:** Agregar todos os custos de uso do MongoDB Atlas em uma granularidade mensal, consolidando-os por Círculo para servir como base no rateio de custos compartilhados, como o de suporte (`mongodb_atlas_costs_month_support`).
+      **Escopo:** Inclui todos os custos de uso da fonte de dados, agregados mensalmente. Omite deliberadamente as métricas de consumo (`quantity`, `unit_price_dollars`) para focar no custo total agregado, que é o necessário para o processo de rateio.
+      **Audiência:** Engenheiros de Dados e Analistas de FinOps. É uma tabela intermediária crucial para o processo de alocação de custos e geralmente não é consumida diretamente para análise final.
+      **Processo:** Os dados são derivados da tabela `silver.mongodb_atlas_costs_usage`. A query agrupa os registros por mês (`DATE_TRUNC('month', ...)`), `cluster_name`, `sku`, `circle_id` e `environment`. O custo é calculado como a soma de `total_price_cents`, convertido para dólares.
+      **Recorrência de atualização:** Mensal.
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: start_date
+        description: "Primeiro dia do mês de referência do custo, calculado como `DATE_TRUNC('month', start_date)`."
+      - name: end_date
+        description: "Último dia do mês de referência do custo, calculado como `DATE_TRUNC('month', end_date)`."
+      - name: cluster_name
+        description: "Nome do cluster do MongoDB Atlas que gerou o custo. Proveniente da fonte `mongodb_atlas_costs_usage`."
+      - name: sku
+        description: "SKU (Stock Keeping Unit) do item de linha faturado. Proveniente da fonte `mongodb_atlas_costs_usage`."
+      - name: circle_id
+        description: "ID do Círculo (time) ao qual o custo foi atribuído. Proveniente da fonte `mongodb_atlas_costs_usage`."
+      - name: environment
+        description: "Ambiente associado ao cluster (ex. 'production'). Proveniente da fonte `mongodb_atlas_costs_usage`."
+      - name: cost
+        description: "Custo mensal total, calculado como `SUM(total_price_cents) / 100` para converter para a unidade monetária principal."

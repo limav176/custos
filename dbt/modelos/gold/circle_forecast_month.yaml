@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: circle_forecast_month
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Servir como a fonte de verdade estática e imutável para o orçamento (`forecast`) de custos de nuvem, fornecendo uma base de comparação consistente para análises de "real vs. previsto".
+      **Escopo:** Armazena os valores planejados de gastos mensais, detalhados por círculo e provedor (`origin`), para múltiplos meses no futuro. Os dados são codificados manualmente no SQL.
+      **Audiência:** Analistas de FinOps, gestores financeiros e líderes de círculos. É a tabela base para todos os relatórios de controle orçamentário.
+      **Processo:** O modelo é construído a partir de uma CTE com valores estáticos (`VALUES`), onde cada linha representa um valor de orçamento específico para um time, em um provedor, para um determinado mês. Ele é enriquecido com os nomes dos círculos (`n1_circle_name`) a partir da tabela `circles` e, em seguida, passa por um `self-join` para criar uma visão comparativa com o mês anterior.
+      **Recorrência de atualização:** Manual. A atualização do orçamento exige uma modificação direta no código SQL deste modelo.
+
+    tags: [gold, will, custos_cloud, finops, forecast, budget]
+
+    columns:
+      - name: circle_id
+        description: "O ID do círculo (time) ao qual a previsão de custo se aplica."
+      - name: origin
+        description: "O provedor de nuvem ou serviço para o qual a previsão foi feita (ex. 'AWS', 'Datadog', 'MongoDB Atlas')."
+      - name: month
+        description: "O mês de referência para o valor da previsão/orçamento."
+      - name: cost
+        description: "O valor monetário do custo previsto (forecast/orçamento) que foi deliberadamente 'congelado' neste modelo."
+      - name: previous_month
+        description: "O mês anterior, para referência do `previous_cost`."
+      - name: previous_cost
+        description: "O valor monetário total do custo para o `previous_month`, permitindo a comparação direta."
+      - name: n1_circle_name
+        description: "O nome do Círculo de Nível 1 (tribo)."

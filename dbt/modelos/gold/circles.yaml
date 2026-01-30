@@ -1,0 +1,50 @@
+version: 2
+
+models:
+  - name: circles
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:**
+      Criar uma tabela de dimensão (`dim_circles`) que contém uma lista curada e relevante de "Círculos" (times/squads) para o contexto de análise de custos. Ela serve como a fonte de verdade para metadados de círculos, como nomes e hierarquia.
+
+      **Escopo e Lógica:**
+      A tabela é construída para ser abrangente, incluindo tanto círculos que geram custos quanto os círculos hierarquicamente superiores (tribos).
+      - **Fontes de Dados:**
+        - `dbt_vilas.holaspirit_circles`: A fonte principal de dados sobre a estrutura organizacional dos círculos.
+        - `gold.aws_costs_month_usage`: Usada como um filtro para identificar círculos com atividade de custo.
+      - **Lógica Principal:**
+        A query une (`UNION`) duas listas de círculos para formar o resultado final:
+        1. **`circles_with_usage`:** Esta CTE seleciona todos os círculos que tiveram um custo de uso na AWS registrado no mês. Isso garante que qualquer time que consome recursos ativamente seja incluído na dimensão.
+        2. **`n1`:** Esta CTE seleciona todos os círculos que são "Nível 1" (N1), ou seja, aqueles cujo nome é o mesmo que o do seu círculo "pai". Isso garante que as tribos ou áreas principais da organização estejam sempre presentes na tabela, mesmo que não tenham custos diretos alocados a elas.
+        - O uso de `UNION` (em vez de `UNION ALL`) remove as duplicatas, de modo que um círculo N1 que também tem custos não aparece duas vezes.
+
+      **Audiência:**
+      Analistas de dados, Engenheiros de FinOps e qualquer pessoa que construa relatórios ou dashboards que precisem agrupar ou filtrar dados por Círculo.
+
+      **Processo:**
+      A tabela é reconstruída em cada execução do dbt, garantindo que a lista de círculos relevantes esteja sempre atualizada com base na atividade de custos e na estrutura organizacional.
+
+      **Recorrência:**
+      Diária (ou conforme a frequência de execução do dbt).
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: circle_id
+        description: "ID único do círculo, originado da fonte de dados organizacional (Holaspirit). Chave primária da tabela."
+      - name: circle_name
+        description: "Nome legível do círculo."
+      - name: n1_circle_name
+        description: "Nome do círculo de Nível 1 ('tribo' ou 'área') ao qual este círculo pertence. Ajuda a definir a hierarquia."
+      - name: type
+        description: "Classificação do tipo de círculo (ex. 'platform', 'stream_aligned'), originado do Holaspirit."

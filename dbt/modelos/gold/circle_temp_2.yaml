@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: circle_temp_2
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:**
+      Atuar como a tabela de alocação final de custos, especificamente para ratear todos os custos de times de 'platform' para os times de produto ('stream_aligned'). É o passo que transforma uma visão de custo direto em uma visão de "custo totalmente alocado".
+
+      **Escopo e Lógica:**
+      A tabela implementa uma lógica de rateio proporcional.
+      - **Fonte de Dados:**
+        - `gold.circle_temp`: A tabela que unifica todos os custos por círculo, provedor e tipo.
+        - `gold.circles`: Usada para distinguir entre times de 'platform' e 'stream_aligned'.
+      - **Lógica Principal:**
+        1. **`platform_total_cost`:** Primeiro, a query calcula o custo total de todos os times de plataforma, para cada provedor (`origin`) e mês. Este é o "bolo" a ser dividido.
+        2. **`rates`:** Em seguida, ela calcula a "taxa de participação" (`rate`) de cada time de produto (`stream_aligned`), medindo qual porcentagem do custo total de um provedor aquele time consumiu diretamente.
+        3. **`shares`:** O custo total da plataforma é então multiplicado pela taxa de cada time de produto para determinar a fatia do custo de plataforma que cada um deve absorver.
+        4. **`final` (UNION ALL):** A query final une duas visões:
+           - Os custos diretos originais dos times de produto.
+           - Os custos de plataforma recém-rateados, agora atribuídos aos times de produto com o `type` 'platform'.
+
+      **Audiência:**
+      Exclusivamente para Engenheiros de Dados. Esta tabela é um passo intermediário crítico, servindo como a fonte de dados para a tabela `circle_month`.
+
+      **Processo:**
+      A tabela é reconstruída diariamente, aplicando a lógica de rateio de plataforma.
+
+      **Recorrência:**
+      Diária.
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: origin
+        description: "Identifica o provedor de serviço do custo (ex. 'AWS'). Este valor é propagado da tabela `circle_temp` e usado como chave para o rateio e agregação."
+      - name: start_date
+        description: "O primeiro dia do mês de referência para o custo. Propagado da tabela `circle_temp` e usado como chave para o rateio e agregação."
+      - name: circle_id
+        description: "O ID do Círculo (time) do tipo 'stream_aligned'. Esta tabela final contém apenas círculos deste tipo, que recebem tanto seus custos diretos quanto os custos rateados de plataforma."
+      - name: type
+        description: "A categoria do custo. Para custos diretos, os valores são 'usage', 'support', 'shared', 'untagged'. Para os custos rateados, o valor é fixado como 'platform'."
+      - name: cost
+        description: "O valor monetário mensal. Para custos diretos, é a soma dos custos originais do círculo. Para custos de plataforma, é a fatia rateada calculada como (custo_total_plataforma * taxa_de_uso_do_circulo)."

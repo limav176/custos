@@ -1,0 +1,206 @@
+version: 2
+
+models:
+  - name: data_platform_costs_day_usage
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: rubens.bueno@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Distribuir diariamente os custos de infraestrutura (AWS e EKS)
+      associados a plataforma de dados entre os diferentes produtos/workloads
+      (dbt, Looker, ETL customizado, sandbox, profiling, etc.) e Círculos da
+      organização. A tabela materializa o custo de execução da plataforma
+      por produto e por círculo, a partir da combinação de métricas de uso e
+      custos brutos de infraestrutura.
+
+      **Escopo:** O modelo conecta três visões principais:
+      - Custos agregados da AWS por recurso (`aws_costs_usage`), consolidados em um
+        identificador lógico `resource_id` do tipo:
+        - `aws/<account_id>/<region>/<resource_id>/<usage_type>/<pricing_term>`
+      - Custos agregados de EKS por cluster/namespace (`aws_eks_costs_usage`), com
+        identificador:
+        - `eks/<account_id>/<region>/<cluster_name>/<namespace>`
+      - Métricas de uso da plataforma de dados (`datametrics_gold.plataforma_metricas_uso`),
+        que trazem:
+        - `id_resource`: o mesmo identificador lógico de recurso (`aws/…` ou `eks/…`);
+        - `id_specific_resource` e `product_name`: identificação do “produto” da
+          plataforma (ex.: dbt, Looker, sandbox);
+        - `nr_usage_metric`: métrica de uso que serve de base para o rateio.
+
+      A granularidade da tabela é **diária por recurso específico da plataforma**:
+      uma linha por combinação de (`start_date`, `id_resource`, `id_specific_resource`,
+      `product_name`, `circle_id`).
+
+      **Audiência:** Engenheiros de FinOps, time de Plataforma de Dados e líderes de
+      Círculos que precisam entender:
+      - quanto custa operar cada produto da plataforma (dbt, Looker, ETL custom, etc.);
+      - como esses custos se distribuem por Círculo, ambiente, conta e região.
+
+      **Processo:**
+      - A CTE `aws_costs` agrega custos diários da AWS por recurso, somando
+        `unblended_cost + reservation_cost` e gerando um `resource_id` composto.
+      - A CTE `eks_costs` agrega custos diários de EKS por cluster/namespace,
+        somando `split_cost + unused_cost` e gerando um `resource_id` composto.
+      - A CTE `data_platform_usage` lê as métricas de uso da plataforma (`plataforma_metricas_uso`)
+        e calcula, por dia e `id_resource`, o **`ratio` de uso** de cada
+        `id_specific_resource`:
+          - `ratio = nr_usage_metric / SUM(nr_usage_metric) OVER (dt_execution, id_resource)`
+        Também normaliza `id_circulo`, substituindo valores nulos ou `'unknown'`
+        por um círculo padrão.
+      - A CTE `joined` faz o casamento entre:
+          - `data_platform_usage` e `aws_costs` (via `id_resource`/`resource_id` e data),
+          - `data_platform_usage` e `eks_costs` (via `id_resource`/`resource_id` e data),
+        enriquece com `circle_type` via `holaspirit_circles` e calcula o **custo
+        rateado da plataforma**:
+          - `cost = (COALESCE(a.cost, e.cost) * ratio)`
+      - O `SELECT` final projeta a tabela na forma analítica consumível.
+
+      **Recorrência de atualização:** Diária.
+
+    columns:
+      - name: id_resource
+        description: >
+          Identificador lógico do recurso de infraestrutura sobre o qual os custos
+          foram agregados. É o elo entre as métricas de uso da plataforma e os custos
+          brutos de AWS/EKS. Assume formatos do tipo:
+          - `aws/<account_id>/<region>/<resource_id>/<usage_type>/<pricing_term>`
+            para custos de serviços AWS em geral.
+          - `eks/<account_id>/<region>/<cluster_name>/<namespace>`
+            para custos de execução em clusters EKS.
+
+      - name: id_specific_resource
+        description: >
+          Identificador lógico do tipo de uso da plataforma, combinando o produto
+          ou ferramenta (dbt, Looker, ETL customizado, sandbox, profiling, adhoc)
+          e, quando aplicável, o usuário, schema ou tabela. Permite analisar consumo
+          por tipo de workload e por “produto” da plataforma. Exemplos de padrões:
+          - `profiling/<tabela>`: workloads de profiling atrelados à primeira
+            tabela referenciada.
+          - `dbt/<tabela>`: pipelines dbt referenciando a tabela resultante.
+          - `dbt/metadata`: consultas auxiliares/metadata do dbt.
+          - `sandbox/<usuario>`: criação de tabelas em contexto sandbox (usuário/role).
+          - `looker/<usuario>`: exploração, dashboards e PDTs do Looker.
+          - `custom_etl/<tabela>`: jobs de ETL customizados orquestrados pelo Airflow legado.
+          - `adhoc/<usuario>`: consultas interativas/experimentais.
+
+          É a unidade de “produto da plataforma” utilizada para ratear e expor o custo.
+
+      - name: start_date
+        description: >
+          Data de referência do uso e do custo associado ao recurso/plataforma,
+          em nível diário.
+          - Para as métricas de uso da plataforma, corresponde diretamente a
+            `dt_execution` em `plataforma_metricas_uso`.
+          - Para os custos de AWS/EKS, os valores são previamente agregados por
+            `DATE(start_date)` nas CTEs `aws_costs` e `eks_costs`, e depois casados
+            com `dt_execution` na `joined`.
+
+          Em resumo: representa o dia em que o uso da plataforma e o custo
+          correspondente foram considerados para efeito de rateio.
+
+      - name: environment
+        description: >
+          Ambiente em que o recurso foi utilizado (ex.: `production`,
+          `development`). É herdado de `aws_costs_usage` ou `aws_eks_costs_usage`
+          via CTEs `aws_costs`/`eks_costs`, sendo escolhido com `COALESCE` na
+          junção (`COALESCE(a.environment, e.environment)`).
+
+      - name: account_id
+        description: >
+          ID da conta AWS onde o custo de infraestrutura foi gerado.
+          É derivado de `aws_costs` ou `eks_costs` e selecionado via
+          `COALESCE(a.account_id, e.account_id)`, permitindo análises por conta
+          mesmo para workloads de plataforma.
+
+      - name: account_name
+        description: >
+          Nome legível da conta AWS associada ao `account_id`.
+          Assim como `account_id`, é obtido de `aws_costs` ou `eks_costs` e
+          utilizado para facilitar a leitura em relatórios e dashboards de FinOps.
+
+      - name: billing_origin
+        description: >
+          Origem dos dados de faturamento (por exemplo, pipeline ou integração que
+          carregou os custos AWS).
+          Vem de `aws_costs` ou `eks_costs` e é propagado para a tabela final, o que
+          permite rastrear a fonte de billing utilizada no cálculo do custo da
+          plataforma.
+
+      - name: region
+        description: >
+          Região AWS onde o recurso de infraestrutura foi provisionado
+          (por exemplo, `sa-east-1`).
+          Herdada de `aws_costs` ou `eks_costs`. Além de permitir análise por
+          região, essa coluna faz parte da composição de `id_resource`, ajudando
+          a diferenciar recursos similares em regiões distintas.
+
+      - name: product_name
+        description: >
+          Classificação amigável do “produto” ou tipo de uso da plataforma associado
+          ao `id_specific_resource`. Exemplos típicos incluem:
+          - `Profiler (Lake 2)`
+          - `DBT (Lake 1)` / `DBT (Lake 2)`
+          - `Sandbox (Lake 1)` / `Sandbox (Lake 2)`
+          - `Looker (Athena)` / `Looker (Trino)`
+          - `Custom ETL (Lake 1)`
+          - `AdHoc (Athena)` / `AdHoc (Trino)`
+
+          Essa coluna agrupa diferentes workloads da plataforma em categorias
+          analíticas, permitindo visualizar o custo por produto/plataforma.
+
+      - name: circle_id
+        description: >
+          ID do Círculo ao qual o uso/custo do produto da plataforma foi atribuído.
+          É derivado de `id_circulo` em `plataforma_metricas_uso`, com fallback para
+          um círculo padrão quando o valor é `NULL` ou `'unknown'`.
+          Esse ID é utilizado para juntar com `holaspirit_circles` e classificar o
+          tipo de círculo, além de ser a principal chave para análise de custos
+          por time/fluxo de valor.
+
+      - name: providedby_id
+        description: >
+          ID do Círculo provedor da plataforma de dados (por exemplo, o círculo
+          responsável por operar a infraestrutura e os produtos de dados
+          compartilhados).
+          No modelo atual é um valor fixo (`'6408d55611798f10f203fe5b'`), representando
+          explicitamente a plataforma como provedora para os Círculos consumidores.
+
+      - name: circle_type
+        description: >
+          Tipo do Círculo (ex.: `stream_aligned`, `platform`, `enabling`), herdado
+          de `holaspirit_circles` via join em `circle_id`.
+          Permite segmentar os custos de plataforma por tipo de time, distinguindo
+          por exemplo times de produto de times de plataforma.
+
+      - name: nr_usage_metric
+        description: >
+          Valor representando à métrica do rateio.
+
+      - name: nm_usage_metric_name
+        description: >
+          Nome dado à métrica do rateio.
+
+      - name: cost
+        description: >
+          Custo diário rateado da plataforma de dados, em moeda de faturamento
+          (ex.: BRL), já proporcional ao uso de cada `id_specific_resource`.
+          Calculado na CTE `joined` como:
+          - `cost = COALESCE(a.cost, e.cost) * ratio`
+          onde:
+          - `COALESCE(a.cost, e.cost)` é o custo diário agregado do recurso de
+            infraestrutura (AWS ou EKS);
+          - `ratio` é a fração de uso daquele `id_specific_resource` em relação ao
+            total de uso do recurso (`nr_usage_metric / SUM(nr_usage_metric)` por
+            dia e `id_resource`).
+
+          Em outras palavras: representa **quanto do custo de infraestrutura
+          daquele recurso foi atribuído àquele produto específico da plataforma
+          naquele dia**.

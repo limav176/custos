@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: checksum_datadog_month
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Atuar como uma tabela de validação e reconciliação de dados (`checksum`) para os custos do Datadog. Seu objetivo é consolidar os totais de custos mensais de várias tabelas e camadas em um único local para facilitar a verificação da consistência financeira do pipeline de dados do Datadog.
+      **Escopo:** Abrange os custos mensais totais provenientes de todas as fases do pipeline de dados do Datadog. Inclui os totais brutos da camada Silver, os custos detalhados e agregados da camada Gold, e a visão financeira final da tabela `circle_month` para a origem 'Datadog'.
+      **Audiência:** Engenheiros de Dados e Analistas de FinOps, que usam esta tabela para garantir a integridade e a precisão do pipeline de custos do Datadog.
+      **Processo:** Os dados são consolidados usando `UNION ALL` a partir de três fontes principais: 1. A tabela `silver.silver_checksum_datadog`, que fornece uma visão agregada da camada silver. 2. As tabelas de custo mensal da camada Gold (`gold.datadog_costs_month_shared` e `gold.datadog_costs_month_usage`), que são unificadas e agregadas. 3. A tabela `gold.circle_month`, filtrada para a origem 'Datadog'. A coluna `table_name` identifica a origem de cada registro, permitindo a comparação dos totais entre as camadas.
+      **Recorrência de atualização:** Diária.
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: start_date
+        description: "O primeiro dia do mês de referência para o custo."
+      - name: table_name
+        description: "O nome da tabela de onde o registro de custo foi extraído, servindo como chave para a análise de reconciliação."
+      - name: circle_id
+        description: "O ID do Círculo (time) associado ao custo."
+      - name: product_name
+        description: "O nome do produto Datadog associado ao custo."
+      - name: billing_type
+        description: "O tipo de faturamento do produto (ex. 'on-demand', 'committed')."
+      - name: cost
+        description: "O custo total mensal agregado da respectiva `table_name`."

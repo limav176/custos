@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: mongodb_atlas_invoice
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Apresentar uma "fatura" mensal consolidada dos custos do MongoDB Atlas, permitindo uma análise de variação de custos (Month-over-Month) ao comparar diretamente o custo de um mês (`cost`) com o do mês imediatamente anterior (`previous_cost`) na mesma linha.
+      **Escopo:** Unifica todos os custos mensais do MongoDB Atlas, incluindo custos de uso (`mongodb_atlas_costs_month_usage`) e de suporte rateado (`mongodb_atlas_costs_month_support`). Não aplica filtros de negócio, processando todos os registros das fontes. Valores nulos ou vazios nos campos-chave (`circle_id`, `cluster_name`, `sku`) são tratados como 'empty' para garantir a integridade da análise.
+      **Audiência:** Analistas de FinOps e Gestores de Círculos que precisam entender a evolução dos custos do MongoDB Atlas.
+      **Processo:** Os dados de uso e suporte são primeiro unificados com `UNION ALL`. Em seguida, a tabela resultante é juntada com ela mesma (`FULL OUTER JOIN`) com um deslocamento de um mês (`current_month.start_date - interval '1' month = prev_month.start_date`), usando as chaves `circle_id`, `cluster_name` e `sku`. Isso alinha o custo do mês atual e do anterior lado a lado.
+      **Recorrência de atualização:** Mensal.
+
+    tags: [gold, will, custos_cloud, mongodb, atlas, invoice]
+
+    columns:
+      - name: circle_id
+        description: "O identificador único do círculo (time) ao qual o custo foi atribuído."
+      - name: cluster_name
+        description: "O nome do cluster do MongoDB Atlas associado ao custo."
+      - name: sku
+        description: "O SKU (Stock Keeping Unit) do item de linha de custo, que detalha o tipo de serviço consumido."
+      - name: month
+        description: "O primeiro dia do mês de referência para o `cost` (o custo do mês corrente na análise)."
+      - name: cost
+        description: "O valor monetário total do custo para o mês de referência (`month`). Se não houve custo no mês atual para esta combinação de atributos, o valor é `0`."
+      - name: previous_month
+        description: "O primeiro dia do mês de referência para o `previous_cost` (o custo do mês anterior na análise)."
+      - name: previous_cost
+        description: "O valor monetário total do custo para o mês anterior (`previous_month`). Se não houve custo no mês anterior para esta combinação de atributos, o valor é `0`."

@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: checksum_eks_month
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Atuar como uma tabela de validação (`checksum`) para o pipeline de custos do Amazon EKS, garantindo a integridade e consistência financeira dos dados ao comparar os totais de custo em diferentes estágios de processamento.
+      **Escopo:** O modelo consolida e compara os custos de EKS, colocando lado a lado os valores calculados na camada Silver (`silver_checksum_eks`) com os valores agregados na camada Gold, recalculados a partir de `aws_eks_costs_usage`.
+      **Audiência:** Engenheiros de Dados e Analistas de FinOps, que utilizam este modelo para validar a precisão do pipeline de custos de EKS.
+      **Processo:** O modelo executa uma validação em duas frentes. Primeiro, obtém os custos de EKS já processados na camada Silver diretamente da tabela `silver_checksum_eks`. Em paralelo, realiza um recálculo completo do custo mensal a partir dos dados brutos de `aws_eks_costs_usage`. Este recálculo envolve agregar os custos diários (`cpu_cost`, `memory_cost`, `split_cost`, `unused_cost`) e, em seguida, somá-los para obter um total mensal (`gold_cost`). Finalmente, a consulta une os totais da Silver com o total recalculado da Gold usando `start_date` como chave, permitindo uma comparação direta para validar a consistência dos dados.
+      **Recorrência de atualização:** Diária.
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: start_date
+        description: "Chave de granularidade temporal. Representa o primeiro dia do mês para o qual os custos foram agregados e comparados."
+      - name: "silver_pre_eks_usage_cost"
+        description: "Custo total de EKS na camada Silver ANTES da aplicação da lógica de rateio por `namespace`. Este valor representa o custo bruto que entra no processo de alocação. A fonte é a tabela `silver_checksum_eks`."
+      - name: "silver_eks_usage_cost"
+        description: "Custo total de EKS na camada Silver DEPOIS da aplicação da lógica de rateio. Este valor reflete o custo já distribuído entre os `namespaces`. A fonte é a tabela `silver_checksum_eks`."
+      - name: "gold_cost"
+        description: "Custo total mensal de EKS, recalculado e agregado a partir dos dados da tabela `aws_eks_costs_usage`. Este valor serve como a contraprova da camada Gold para os totais da camada Silver. Atenção: a fórmula de soma neste cálculo pode conter duplicações lógicas."

@@ -1,0 +1,65 @@
+version: 2
+
+models:
+  - name: eks_waste_index
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:**
+      Calcular e apresentar um "índice de desperdício" (`waste index`) para os recursos de EKS. A tabela detalha a ineficiência de alocação de CPU e Memória por namespace/cluster e fornece recomendações de otimização acionáveis, servindo como a principal ferramenta para o rightsizing de contêineres.
+
+      **Escopo:**
+      Analisa os custos diários de uso de EKS para todos os clusters, exceto 'eks-will-prod-01' e 'eks-will-dev-02'. A análise cobre apenas custos relacionados a CPU e Memória (`usage_type` LIKE '%EKS-EC2-vCPU-Hours' ou '%EKS-EC2-GB-Hours').
+
+      **Audiência:**
+      Engenheiros de plataforma e de times de produto, que usam esta tabela para identificar e corrigir alocações ineficientes de recursos em seus namespaces, e Analistas de FinOps para rastrear a eficiência geral dos clusters.
+
+      **Processo:**
+      Os dados são derivados da tabela `aws_eks_costs_day_usage`. A query agrega custos diários por namespace e cluster, separando os custos totais e os de desperdício (`unused_cost`) para CPU e Memória. Em seguida, utiliza `UNION ALL` para despivotar os dados, criando linhas separadas para as categorias 'CPU', 'Memory' e 'Total', e calcula os índices de desperdício para cada uma.
+
+      **Recorrência de atualização:**
+      Diária.
+
+    tags: [gold, will, custos_cloud, finops, waste, eks, rightsizing]
+
+    columns:
+      - name: start_date
+        description: "A data a que o custo e a análise de desperdício se referem."
+      - name: namespace
+        description: "O namespace do Kubernetes sendo analisado."
+      - name: cluster_name
+        description: "O nome do cluster EKS sendo analisado."
+      - name: environment
+        description: "O ambiente do cluster (ex. 'production', 'development')."
+      - name: circle_id
+        description: "O ID do círculo (time) associado ao namespace."
+      - name: usage_category
+        description: "Indica a categoria da linha, criada pelo 'unpivot' da query. Valores: 'CPU', 'Memory', 'Total'."
+      - name: total_cost
+        description: "O custo total diário do namespace (CPU + Memória)."
+      - name: cpu_cost
+        description: "Custo total de CPU do namespace no dia. Preenchido apenas para a `usage_category` 'CPU'."
+      - name: memory_cost
+        description: "Custo total de Memória do namespace no dia. Preenchido apenas para a `usage_category` 'Memory'."
+      - name: waste_cost
+        description: "Custo total de desperdício do namespace no dia (soma do desperdício de CPU e Memória)."
+      - name: cpu_waste_cost
+        description: "A porção do custo de CPU que é considerada desperdício (`unused_cost`). Preenchido apenas para a `usage_category` 'CPU'."
+      - name: memory_waste_cost
+        description: "A porção do custo de Memória que é considerada desperdício (`unused_cost`). Preenchido apenas para a `usage_category` 'Memory'."
+      - name: cpu_waste_index
+        description: "Índice de desperdício de CPU (0 a 1), calculado como `cpu_waste_cost / cpu_cost`. Representa a fração do custo de CPU que é desperdício."
+      - name: memory_waste_index
+        description: "Índice de desperdício de Memória (0 a 1), calculado como `memory_waste_cost / memory_cost`. Representa a fração do custo de Memória que é desperdício."
+      - name: total_waste_index
+        description: "Um índice de desperdício geral, calculado como a média dos índices de CPU e Memória. Preenchido apenas para a `usage_category` 'Total'."
+      - name: recommendation
+        description: "Uma recomendação de otimização acionável (ex. 'Reduzir CPU request') gerada quando um dos índices de desperdício excede 25%."
+

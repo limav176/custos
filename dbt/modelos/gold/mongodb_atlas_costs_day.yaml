@@ -1,0 +1,40 @@
+version: 2
+
+models:
+  - name: mongodb_atlas_costs_day
+    description: >
+      **Propósito:** Fornecer uma visão agregada e simplificada dos custos diários de uso do MongoDB Atlas, otimizada para dashboards e relatórios de acompanhamento.
+      **Escopo:** Inclui dados de custo de uso diários, excluindo o dia corrente para garantir que apenas dias completos sejam processados (`start_date < DATE_TRUNC('day', current_date)`). Omite deliberadamente métricas de consumo detalhadas como `quantity` e `unit_price`.
+      **Audiência:** Gestores e analistas de FinOps que precisam de uma visão rápida e consolidada dos custos diários do MongoDB Atlas.
+      **Processo:** Os dados são derivados da tabela `silver.mongodb_atlas_costs_usage`. A query agrupa os registros por dia, `cluster_name`, `sku`, e `circle_id`, e calcula o custo total diário somando `total_price_cents` e convertendo para dólares.
+      **Recorrência de atualização:** Diária.
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: start_date
+        description: "O dia de referência para o custo. A query filtra por dias anteriores ao dia atual."
+      - name: end_date
+        description: "O fim do dia de referência para o custo."
+      - name: cluster_name
+        description: "O nome do cluster do MongoDB Atlas que gerou o custo."
+      - name: sku
+        description: "O SKU (Stock Keeping Unit) que identifica o tipo de uso faturado (ex. 'M30_INSTANCE_HOURS')."
+      - name: circle_id
+        description: "O identificador do Círculo (time) ao qual o custo foi atribuído."
+      - name: tag_policy_compliant
+        description: "Flag booleana que indica se o recurso estava em conformidade com as políticas de tagueamento."
+      - name: environment
+        description: "O ambiente associado ao cluster (ex. 'production')."
+      - name: cost
+        description: "O custo diário total, em dólares, para a combinação de dimensões da linha."

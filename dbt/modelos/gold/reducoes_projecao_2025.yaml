@@ -1,0 +1,40 @@
+version: 2
+
+models:
+  - name: reducoes_projecao_2025
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Criar uma visão completa do desempenho das iniciativas de redução de custos, combinando dados históricos reais com uma projeção até o final do ano. O objetivo é permitir o acompanhamento do progresso em relação às metas anuais.
+      **Escopo:** Inclui dados históricos e projetados de custos para todas as iniciativas de otimização (`initiative`) a partir de 01 de janeiro de 2025. A projeção estende-se até 31 de dezembro de 2025 e é calculada com base na média de custos dos últimos 7 dias de dados reais. Iniciativas sem nome (`initiative is null`) são excluídas.
+      **Audiência:** Gestores financeiros, gestores de engenharia e a equipe de FinOps. Utilizada para visualizar se as metas de economia anuais estão no caminho certo para serem atingidas.
+      **Processo:** Os dados são derivados da tabela `gold.reducoes_h1_2025`. O modelo une, com um `UNION ALL`, duas consultas distintas: a primeira seleciona os custos históricos (reais), atribuindo o tipo 'Realizado'; a segunda calcula a média de custo dos últimos 7 dias para cada iniciativa e projeta esses valores até o final de 2025, atribuindo o tipo 'Projeção'.
+      **Recorrência de atualização:** Diária.
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: start_date
+        description: "Data do custo. Pode ser uma data histórica (Realizado) ou futura (Projeção). Para projeções, é gerado a partir de um calendário de datas futuras."
+        tags: []
+      - name: initiative
+        description: "O nome da iniciativa de redução de custos sendo acompanhada. Originado da tabela `gold.reducoes_h1_2025`."
+        tags: []
+      - name: baseline_cost
+        description: "Custo de linha de base. Para dados 'Realizado', é o valor histórico. Para 'Projeção', é a média dos últimos 7 dias de custo, projetada para o futuro."
+        tags: []
+      - name: actual_cost
+        description: "Custo atual. Para dados 'Realizado', é o valor histórico. Para 'Projeção', é a média dos últimos 7 dias de custo, projetada para o futuro."
+        tags: []
+      - name: type
+        description: "Indica se o registro é um dado histórico ('Realizado') ou uma estimativa futura ('Projeção'). Definido via `UNION ALL` das duas lógicas."
+        tags: []

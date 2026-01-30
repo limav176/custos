@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: checksum_mongodb_atlas_month
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Servir como a tabela de reconciliação financeira final para todo o pipeline de custos do MongoDB Atlas, consolidando os totais de custo mensais de todas as camadas para permitir uma auditoria completa da integridade dos dados.
+      **Escopo:** O modelo herda a validação da camada silver (`silver_checksum_atlas`) e a expande, incorporando os principais agregados da camada gold, como as tabelas de custos mensais (`mongodb_atlas_costs_month_*`), a fatura (`mongodb_atlas_invoice`) e a visão financeira de alto nível (`circle_month`).
+      **Audiência:** Exclusivamente Engenheiros de Dados. Esta é a ferramenta definitiva para monitorar a saúde e a precisão do pipeline de custos do MongoDB Atlas.
+      **Processo:** O modelo começa selecionando os dados de `silver_checksum_atlas` e os unifica (`UNION ALL`) com os totais de custo agregados de cada ponto de verificação da camada Gold. Cada fonte é rotulada na coluna `table_name` para identificar sua origem precisa no pipeline e permitir a validação cruzada dos valores.
+      **Recorrência de atualização:** Diária.
+
+    tags: [gold, will, custos_cloud, checksum, reconciliation, mongodb, atlas]
+
+    columns:
+      - name: start_date
+        description: "O primeiro dia do mês de referência para o qual a soma de controle (checksum) foi calculada."
+      - name: table_name
+        description: "Identifica a tabela ou camada de origem do cálculo de custo. É a coluna chave para a análise de reconciliação."
+      - name: circle_id
+        description: "O ID do círculo (time) ao qual o custo foi atribuído na respectiva camada."
+      - name: sku
+        description: "O SKU (Stock Keeping Unit) do MongoDB Atlas, usado como uma das chaves de agrupamento para a reconciliação."
+      - name: cost
+        description: "O custo total mensal agregado para a respectiva `table_name`. Este valor deve ser consistente entre as diferentes camadas para a mesma chave de negócio."

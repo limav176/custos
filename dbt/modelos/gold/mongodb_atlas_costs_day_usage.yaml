@@ -1,0 +1,44 @@
+version: 2
+
+models:
+  - name: mongodb_atlas_costs_day_usage
+    description: >
+      **Propósito:** Fornecer uma visão diária e detalhada dos custos de uso do MongoDB Atlas. Esta tabela agrega os dados brutos, preservando métricas de consumo como `quantity` e `unit_price_dollars`, para permitir análises profundas sobre o uso de recursos por cluster, SKU e Círculo.
+      **Escopo:** Inclui todos os registros de custo de uso da tabela de origem, sem aplicação de filtros de negócio. A granularidade dos dados é consolidada por dia.
+      **Audiência:** Analistas de FinOps e Engenheiros de Círculos que precisam entender os padrões de consumo e os custos diários detalhados de seus clusters MongoDB Atlas.
+      **Processo:** Os dados são derivados da tabela `silver.mongodb_atlas_costs_usage`. A query agrupa os registros por dia e outras dimensões (`cluster_name`, `sku`, `circle_id`) para calcular as métricas diárias. A quantidade consumida (`quantity`) é somada (`SUM`), o preço unitário (`unit_price_dollars`) é extraído com a função `MAX`, e o custo total (`cost`) é a soma dos valores em centavos, convertida para dólares.
+      **Recorrência de atualização:** Diária.
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: start_date
+        description: "O dia de referência para o custo, truncado."
+      - name: cluster_name
+        description: "O nome do cluster do MongoDB Atlas que gerou o custo."
+      - name: sku
+        description: "O SKU (Stock Keeping Unit) que identifica o tipo de uso faturado (ex. 'M30_INSTANCE_HOURS')."
+      - name: unit
+        description: "A unidade de medida na qual a `quantity` é expressa (ex. 'GB_PER_HOUR')."
+      - name: quantity
+        description: "A quantidade total de `unit` consumida no dia para a linha."
+      - name: unit_price_dollars
+        description: "O preço, em dólares, por uma unidade de `quantity`."
+      - name: circle_id
+        description: "O identificador do Círculo (time) ao qual o custo foi atribuído."
+      - name: tag_policy_compliant
+        description: "Flag booleana que indica se o recurso estava em conformidade com as políticas de tagueamento."
+      - name: environment
+        description: "O ambiente associado ao cluster (ex. 'production')."
+      - name: cost
+        description: "O custo diário total, em dólares, para a combinação de dimensões da linha."
