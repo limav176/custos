@@ -1,0 +1,292 @@
+owner: gabriel.matsuda@willbank.com.br
+source:
+  path: "s3://data-fixed-upload-transient-will-prod/rds_prices.csv"
+  type: csv
+  sep: ","
+description: >
+      **Propósito:** Custo de Instância RDS
+      **Escopo:** Custos de RDS
+      **Processo:** Job roda através do EKS gerando arquivo CSV com detalhes de custos atraves api da aws.
+      **Recorrência de atualização:** Diária
+tags: ["observability"]
+columns:
+  - name: SKU
+    description: SKU
+    type: string
+    nullable: false
+    tags: []
+  - name: OfferTermCode
+    description: OfferTermCode
+    type: string
+    nullable: true
+    tags: []
+  - name: TermType
+    description: TermType
+    type: string
+    nullable: true
+    tags: []
+  - name: RateCode
+    description: RateCode
+    type: string
+    nullable: true
+    tags: []
+  - name: ServiceCodeAttr
+    description: ServiceCodeAttr
+    type: string
+    nullable: true
+    tags: []
+  - name: ServiceName
+    description: ServiceName
+    type: string
+    nullable: true
+    tags: []
+  - name: RegionCode
+    description: RegionCode
+    type: string
+    nullable: true
+    tags: []
+  - name: Location
+    description: Location
+    type: string
+    nullable: true
+    tags: []
+  - name: LocationType
+    description: LocationType
+    type: string
+    nullable: true
+    tags: []
+  - name: InstanceType
+    description: InstanceType
+    type: string
+    nullable: true
+    tags: []
+  - name: InstanceFamily
+    description: InstanceFamily
+    type: string
+    nullable: true
+    tags: []
+  - name: InstanceTypeFamily
+    description: InstanceTypeFamily
+    type: string
+    nullable: true
+    tags: []
+  - name: CurrentGeneration
+    description: CurrentGeneration
+    type: string
+    nullable: true
+    tags: []
+  - name: vCPU
+    description: vCPU
+    type: string
+    nullable: true
+    tags: []
+  - name: ACU
+    description: ACU
+    type: string
+    nullable: true
+    tags: []
+  - name: PhysicalProcessor
+    description: PhysicalProcessor
+    type: string
+    nullable: true
+    tags: []
+  - name: ClockSpeed
+    description: ClockSpeed
+    type: string
+    nullable: true
+    tags: []
+  - name: Memory
+    description: Memory
+    type: string
+    nullable: true
+    tags: []
+  - name: NetworkPerformance
+    description: NetworkPerformance
+    type: string
+    nullable: true
+    tags: []
+  - name: ProcessorArchitecture
+    description: ProcessorArchitecture
+    type: string
+    nullable: true
+    tags: []
+  - name: ProcessorFeatures
+    description: ProcessorFeatures
+    type: string
+    nullable: true
+    tags: []
+  - name: EnhancedNetworkingSupported
+    description: EnhancedNetworkingSupported
+    type: string
+    nullable: true
+    tags: []
+  - name: OperatingSystem
+    description: OperatingSystem
+    type: string
+    nullable: true
+    tags: []
+  - name: Storage
+    description: Storage
+    type: string
+    nullable: true
+    tags: []
+  - name: StorageMedia
+    description: StorageMedia
+    type: string
+    nullable: true
+    tags: []
+  - name: VolumeType
+    description: VolumeType
+    type: string
+    nullable: true
+    tags: []
+  - name: MinVolumeSize
+    description: MinVolumeSize
+    type: string
+    nullable: true
+    tags: []
+  - name: MaxVolumeSize
+    description: MaxVolumeSize
+    type: string
+    nullable: true
+    tags: []
+  - name: VolumeName
+    description: VolumeName
+    type: string
+    nullable: true
+    tags: []
+  - name: DedicatedEbsThroughput
+    description: DedicatedEbsThroughput
+    type: string
+    nullable: true
+    tags: []
+  - name: DatabaseEngine
+    description: DatabaseEngine
+    type: string
+    nullable: true
+    tags: []
+  - name: EngineCode
+    description: EngineCode
+    type: string
+    nullable: true
+    tags: []
+  - name: DatabaseEdition
+    description: DatabaseEdition
+    type: string
+    nullable: true
+    tags: []
+  - name: LicenseModel
+    description: LicenseModel
+    type: string
+    nullable: true
+    tags: []
+  - name: DeploymentOption
+    description: DeploymentOption
+    type: string
+    nullable: true
+    tags: []
+  - name: EngineMediaType
+    description: EngineMediaType
+    type: string
+    nullable: true
+    tags: []
+  - name: EngineMajorVersion
+    description: EngineMajorVersion
+    type: string
+    nullable: true
+    tags: []
+  - name: ExtendedSupportPricingYear
+    description: ExtendedSupportPricingYear
+    type: string
+    nullable: true
+    tags: []
+  - name: ProductFamily
+    description: ProductFamily
+    type: string
+    nullable: true
+    tags: []
+  - name: UsageType
+    description: UsageType
+    type: string
+    nullable: true
+    tags: []
+  - name: Operation
+    description: Operation
+    type: string
+    nullable: true
+    tags: []
+  - name: NormalizationSizeFactor
+    description: NormalizationSizeFactor
+    type: string
+    nullable: true
+    tags: []
+  - name: DeploymentModel
+    description: DeploymentModel
+    type: string
+    nullable: true
+    tags: []
+  - name: Group
+    description: Group
+    type: string
+    nullable: true
+    tags: []
+  - name: GroupDescription
+    description: GroupDescription
+    type: string
+    nullable: true
+    tags: []
+  - name: Restriction
+    description: Restriction
+    type: string
+    nullable: true
+    tags: []
+  - name: LimitlessPreview
+    description: LimitlessPreview
+    type: string
+    nullable: true
+    tags: []
+  - name: PriceDimensionDescription
+    description: PriceDimensionDescription
+    type: string
+    nullable: true
+    tags: []
+  - name: BeginRange
+    description: BeginRange
+    type: string
+    nullable: true
+    tags: []
+  - name: EndRange
+    description: EndRange
+    type: string
+    nullable: true
+    tags: []
+  - name: PriceDimensionUnit
+    description: PriceDimensionUnit
+    type: string
+    nullable: true
+    tags: []
+  - name: PricingUnitAttr
+    description: PricingUnitAttr
+    type: string
+    nullable: true
+    tags: []
+  - name: PricePerUnitUSD
+    description: PricePerUnitUSD
+    type: double
+    nullable: true
+    tags: []
+  - name: LeaseContractLength
+    description: LeaseContractLength
+    type: string
+    nullable: true
+    tags: []
+  - name: PurchaseOption
+    description: PurchaseOption
+    type: string
+    nullable: true
+    tags: []
+  - name: OfferingClass
+    description: OfferingClass
+    type: string
+    nullable: true
+    tags: []
