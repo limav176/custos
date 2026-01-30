@@ -1,0 +1,95 @@
+version: 2
+
+models:
+  - name: stg_aws_cost_usage_report
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Atuar como a principal tabela de "staging" para os dados brutos do AWS Cost and Usage Report (CUR). Seu objetivo é realizar a primeira camada de limpeza, normalização e enriquecimento, transformando os dados brutos em um formato consistente e confiável para ser consumido pelas camadas `silver` e `gold`.
+      **Escopo:** Inclui todos os custos e uso da AWS, com exceção de registros onde a operação é 'EKSPod-EC2' (custos de pods EKS, tratados em outro modelo) e o tipo de linha é 'DiscountedUsage' (linhas de desconto que podem causar dupla contagem).
+      **Audiência:** Principalmente outros modelos dbt nas camadas `silver` e `gold`. É o ponto de partida para todas as análises de custo da AWS.
+      **Processo:** Os dados são derivados da tabela `sources.custos_cloud_bronze.aws_cost_usage_report`. O modelo renomeia colunas, converte strings vazias em NULL, realiza CASTs para tipos de dados corretos e aplica regras de negócio para enriquecer os dados, como a identificação de EMRs não tagueados, Savings Plans e a normalização de campos para instâncias RDS Serverless.
+      **Recorrência de atualização:** Diária.
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: start_date
+        description: "Data e hora de início do uso do recurso. Convertida para TIMESTAMP a partir da coluna `line_item_usage_start_date`."
+      - name: resource_id
+        description: "Identificador único do recurso AWS. Derivado da coluna `line_item_resource_id` com strings vazias convertidas para NULL."
+      - name: description
+        description: "Descrição detalhada do item de linha. Derivada da coluna `line_item_line_item_description` com strings vazias convertidas para NULL."
+      - name: aws_product_name
+        description: "Nome do produto AWS. Derivado de `product_product_name`, com uma lógica CASE para renomear EMRs não tagueados como 'EC2 EMR' e identificar 'Savings Plan'."
+      - name: circle_id
+        description: "ID do círculo associado ao recurso. Derivado da tag `resource_tags_user_circle_id`."
+      - name: tag_circle
+        description: "Nome do círculo associado ao recurso. Derivado da tag `resource_tags_user_circle`."
+      - name: providedby_id
+        description: "ID do provedor do recurso. Derivado da tag `resource_tags_user_provided_by_id`."
+      - name: tag_repository
+        description: "Tag de repositório associada ao recurso. Derivada da tag `resource_tags_user_repository`."
+      - name: tag_product
+        description: "Tag de produto associada ao recurso. Derivado da tag `resource_tags_user_product`."
+      - name: tag_management
+        description: "Tag de gerenciamento associada ao recurso. Derivada da tag `resource_tags_user_management`."
+      - name: tag_name
+        description: "Nome do recurso. Derivado da tag `resource_tags_user_name`, com uma lógica CASE para preencher 'EMR' para EMRs não tagueados."
+      - name: billing_origin
+        description: "Origem da cobrança (ex. 'AWS', 'AWS Marketplace'). Derivado da coluna `bill_billing_entity`."
+      - name: item_type
+        description: "Tipo do item de linha (ex. 'Usage', 'Tax', 'Credit'). Derivado da coluna `line_item_line_item_type`."
+      - name: item_operation
+        description: "Operação específica que gerou o custo (ex. 'RunInstances'). Derivado da coluna `line_item_operation`."
+      - name: account_id
+        description: "ID da conta AWS onde o custo foi incorrido. Derivado da coluna `line_item_usage_account_id`."
+      - name: region
+        description: "Região AWS onde o recurso está localizado. Derivada da coluna `product_region`."
+      - name: usage_type
+        description: "Descrição detalhada do tipo de uso faturado pela AWS (ex. 'USE2-BoxUsage:t3.medium'). Derivada da coluna `line_item_usage_type`."
+      - name: instance_type
+        description: "Tipo da instância (ex. 't3.medium'). Lógica aplicada para normalizar este campo para instâncias RDS Serverless, preenchendo com 'db.serverless'."
+      - name: multi_az
+        description: "Indicador se o recurso está em múltiplas zonas de disponibilidade (multi-AZ). Lógica aplicada para normalizar este campo para RDS Serverless."
+      - name: engine
+        description: "Motor do banco de dados (para RDS). Derivado de `product_database_engine`, normalizado para minúsculas e com espaços substituídos por hífens."
+      - name: pricing_term
+        description: "Termo de precificação (ex. 'OnDemand', 'Reserved'). Derivado da coluna `pricing_term`."
+      - name: reservation_start_time
+        description: "Data de início da reserva. Derivada de `reservation_start_time` com `TRY_CAST` para evitar erros de parsing."
+      - name: reservation_end_time
+        description: "Data de fim da reserva. Derivada de `reservation_end_time` com `TRY_CAST` para evitar erros de parsing."
+      - name: reservation_arn
+        description: "ARN (Amazon Resource Name) da reserva. Derivado da coluna `reservation_reservation_a_r_n`."
+      - name: reservation_id
+        description: "ID da subscrição da reserva. Derivado de `reservation_subscription_id` com `TRY_CAST`."
+      - name: reservations
+        description: "Número de reservas na subscrição. Derivado de `reservation_number_of_reservations` com `TRY_CAST`."
+      - name: reservation_hours
+        description: "Total de horas de reserva na subscrição. Derivado de `reservation_units_per_reservation` com `TRY_CAST`."
+      - name: instance_commited
+        description: "O tipo de instância para o qual um compromisso de reserva foi feito. Extraído da coluna `line_item_usage_type` via expressão regular."
+      - name: contract_length
+        description: "Duração do contrato da reserva (ex. '1yr'). Derivado da coluna `pricing_lease_contract_length`."
+      - name: offering_class
+        description: "Classe da oferta da reserva (ex. 'standard', 'convertible'). Derivada da coluna `pricing_offering_class`."
+      - name: contract_purchase
+        description: "Opção de compra do contrato (ex. 'All Upfront', 'No Upfront'). Derivada da coluna `pricing_purchase_option`."
+      - name: unblended_cost
+        description: "Custo não combinado, antes da aplicação de descontos de reserva. Derivado da coluna `line_item_unblended_cost`."
+      - name: reservation_cost
+        description: "Custo efetivo da reserva. Derivado da coluna `reservation_effective_cost`."
+      - name: reservation_net_effective_cost
+        description: "Custo efetivo líquido da reserva. Derivado da coluna `reservation_net_effective_cost`."
+      - name: reservation_amortized_upfront_cost
+        description: "Custo antecipado amortizado da reserva para o período de uso. Derivado da coluna `reservation_amortized_upfront_cost_for_usage`."

@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: stg_rivery_plateng_macro_costs_bronze
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Centralizar e acompanhar os resultados das iniciativas de otimização de custos (FinOps) conduzidas pelo time de Platform Engineering, permitindo a análise de economias potenciais e realizadas.
+      **Escopo:** Inclui registros de ações de otimização de custos, detalhando o time, domínio, ação, produto, custos e valores de economia. A fonte de dados é um controle externo (ex. planilha).
+      **Audiência:** Analistas de FinOps, Liderança de Engenharia e Platform Engineering.
+      **Processo:** Ingestão direta (pass-through) dos dados da tabela `custos_cloud_bronze.rivery_plateng_macro_costs_bronze`, que é alimentada via Rivery. O modelo seleciona todas as colunas da origem sem aplicar transformações ou filtros.
+      **Recorrência de atualização:** Diária.
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: team
+        description: 'Nome do time responsável pela iniciativa de otimização. Copiado diretamente da coluna `team` da origem.'
+      - name: domain
+        description: 'Domínio de negócio ou técnico impactado pela ação. Copiado diretamente da coluna `domain` da origem.'
+      - name: action
+        description: 'Descrição da ação de otimização realizada. Copiado diretamente da coluna `action` da origem.'
+      - name: date
+        description: 'Data em que a ação ou o registro foi feito. Copiado diretamente da coluna `date` da origem.'
+      - name: product
+        description: 'Produto ou serviço de nuvem que foi otimizado. Copiado diretamente da coluna `product` da origem.'
+      - name: cost
+        description: 'Custo associado à iniciativa ou ao recurso. Copiado diretamente da coluna `cost` da origem.'
+      - name: saving_opportunity
+        description: 'O valor estimado da oportunidade de economia. Copiado diretamente da coluna `saving_opportunity` da origem.'
+      - name: saving
+        description: 'O valor da economia efetivamente realizada após a ação. Copiado diretamente da coluna `saving` da origem.'
+      - name: status
+        description: 'O estado atual da iniciativa (ex. "Concluído", "Em andamento"). Copiado diretamente da coluna `status` da origem.'
+      - name: card
+        description: 'Nome do card ou tarefa em uma ferramenta de gestão de projetos (ex. Trello, Jira). Copiado diretamente da coluna `card` da origem.'
+      - name: cardlink
+        description: 'Link para o card ou tarefa, para fácil acesso ao contexto da iniciativa. Copiado diretamente da coluna `cardlink` da origem.'

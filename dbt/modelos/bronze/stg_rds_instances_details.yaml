@@ -1,0 +1,59 @@
+version: 2
+
+models:
+  - name: stg_rds_instances_details
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Transformar e enriquecer os dados de inventário de instâncias RDS, servindo como uma fonte da verdade limpa e com metadados detalhados sobre os recursos.
+      **Escopo:** Inclui todos os registros de inventário de instâncias RDS da tabela fonte. O modelo processa todas as instâncias, sem aplicar filtros para excluí-las.
+      **Audiência:** Principalmente modelos da camada silver, que utilizarão estes dados para enriquecer informações de custo com metadados de infraestrutura.
+      **Processo:** Os dados são derivados da tabela `custos_cloud_bronze.rds_instances_details`. O processo principal consiste em desaninhar a coluna `taglist` (uma string JSON) para extrair as tags `CircleId`, `Product`, `Management` e `Repository` para colunas dedicadas. Adicionalmente, normaliza os nomes dos motores de banco de dados (`engine`), o status `multi_az` e calcula um campo de `status` booleano para indicar se a instância está operacional.
+      **Recorrência de atualização:** Diária.
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: start_date
+        description: 'Timestamp da coleta dos dados de inventário. Derivado diretamente da coluna `start_date`.'
+      - name: account_id
+        description: 'ID da conta AWS onde a instância está localizada. Renomeado da coluna `awsaccountid`.'
+      - name: region
+        description: 'Região AWS da instância. Copiado diretamente da coluna `region`.'
+      - name: engine
+        description: 'Motor do banco de dados, normalizado para um formato padrão e consistente. Calculado a partir da coluna `engine` (ex. "postgres" vira "postgresql").'
+      - name: status
+        description: 'Flag booleana (`TRUE`/`FALSE`) que indica se a instância está em um estado operacional. Calculado com base em uma lista de status da coluna `dbinstancestatus`.'
+      - name: instance_created_time
+        description: 'Timestamp de quando a instância foi criada. Derivado da coluna `instancecreatetime`.'
+      - name: instance_name
+        description: 'O nome identificador (amigável) da instância RDS. Renomeado da coluna `dbinstanceidentifier`.'
+      - name: resource_id
+        description: 'ARN (Amazon Resource Name) único da instância RDS. Copiado diretamente da coluna `dbinstancearn`.'
+      - name: instance_size
+        description: 'Tamanho (classe) da instância RDS (ex. "db.t3.medium"). Copiado diretamente da coluna `dbinstanceclass`.'
+      - name: multi_az
+        description: 'Indica se a instância está em modo "single-az" ou "multi-az". Normalizado a partir da coluna booleana `multiaz`.'
+      - name: instance_license
+        description: 'O modelo de licença do software do banco de dados. Copiado diretamente da coluna `licensemodel`.'
+      - name: storage_type
+        description: 'O tipo de armazenamento bruto da instância (ex. "gp2"). Copiado diretamente da coluna `storagetype`.'
+      - name: circle_id
+        description: 'O ID do Círculo. Extraído da tag com chave "CircleId" na coluna `taglist`.'
+      - name: tag_product
+        description: 'O valor da tag "Product". Extraído da tag com chave "Product" na coluna `taglist`.'
+      - name: tag_management
+        description: 'O valor da tag "Management". Extraído da tag com chave "Management" na coluna `taglist`.'
+      - name: tag_repository
+        description: 'O valor da tag "Repository". Extraído da tag com chave "Repository" na coluna `taglist`.'
+      - name: storage
+        description: 'Campo de armazenamento normalizado para alinhamento com a tabela de preços. Calculado a partir da coluna `storagetype` (ex. "aurora-iopt1" vira "Aurora IO Optimization Mode").'

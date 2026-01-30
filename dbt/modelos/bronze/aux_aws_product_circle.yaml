@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: aux_aws_product_circle
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Funcionar como uma tabela de mapeamento estática (DE/PARA) que associa nomes de produtos da AWS (`product_name`) a um `circle_id` específico, atribuindo custos de serviços centralizados ao Círculo funcionalmente responsável por eles.
+      **Escopo:** Inclui um conjunto fixo de serviços e produtos da AWS, como 'Amazon GuardDuty' ou 'AWS Config', que são de propriedade de times de plataforma. Produtos não listados explicitamente não são cobertos por este mapeamento.
+      **Audiência:** Principalmente o modelo de staging `stg_aws_cost_usage_report`, que usa esta tabela para aplicar uma regra de atribuição de propriedade no nível do produto.
+      **Processo:** Os dados são definidos estaticamente em uma Common Table Expression (CTE) com a cláusula `VALUES`. A tabela final é criada selecionando diretamente as colunas `circle_id` e `product_name` dessa CTE, sem consultar fontes de dados externas.
+      **Recorrência de atualização:** Manual. Qualquer alteração na propriedade de um serviço AWS ou adição de um novo produto exige uma modificação direta neste modelo SQL.
+
+    tags: ['bronze', 'will', 'custos_cloud', 'product', 'owner', 'circle_id', 'mapping']
+
+    columns:
+      - name: circle_id
+        description: "O ID do Círculo para o qual todos os custos do produto AWS correspondente serão atribuídos. O valor é definido estaticamente no modelo."
+      - name: product_name
+        description: "O nome do produto ou serviço da AWS, que serve como chave do mapeamento. O valor é definido estaticamente no modelo."

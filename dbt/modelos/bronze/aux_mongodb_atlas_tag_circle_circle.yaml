@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: aux_mongodb_atlas_tag_circle_circle
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Servir como uma tabela de mapeamento estática (DE/PARA) para traduzir o nome de um Círculo (`tag_circle`), como encontrado em tags, para o seu respectivo identificador único (`circle_id`).
+      **Escopo:** Inclui apenas os mapeamentos de `tag_circle` para `circle_id` que estão explicitamente definidos na cláusula `VALUES` do modelo. Qualquer nome de círculo não listado está fora do escopo.
+      **Audiência:** Engenheiros de Dados e modelos da camada silver (ex. `stg_mongodb_atlas_cost_usage_report`) que precisam normalizar os nomes de círculos para seus IDs oficiais.
+      **Processo:** Os dados são definidos estaticamente através de uma Common Table Expression (CTE) com a cláusula `VALUES`. Não há fontes de dados externas; a tabela é criada e mantida manualmente no próprio código SQL.
+      **Recorrência de atualização:** Manual. A tabela é atualizada apenas quando novos círculos precisam ser mapeados ou quando os mapeamentos existentes precisam ser corrigidos.
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: circle_id
+        description: 'Identificador único (ID) do Círculo ao qual a tag de custo será associada. Chave estrangeira para a tabela de dimensões `circles`.'
+      - name: tag_circle
+        description: 'Nome da tag de Círculo (ex. "Conta", "Fraude") encontrada nos dados de custo do MongoDB Atlas. Este valor é utilizado como chave para o mapeamento.'

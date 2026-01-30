@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: aux_datadog_service_circle
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Fornecer uma tabela de mapeamento (DE/PARA) para atribuir os custos de serviços do Datadog a um Círculo (time) específico, com base no namespace do serviço.
+      **Escopo:** Inclui todos os mapeamentos entre `namespace` e `circle_id` disponíveis na fonte de dados. O modelo realiza uma ingestão completa da tabela de origem, sem aplicar filtros.
+      **Audiência:** Engenheiros de Dados, Analistas de FinOps e times de plataforma que gerenciam custos de observability.
+      **Processo:** Ingestão direta (pass-through) dos dados da tabela de origem `custos_cloud_bronze.rivery_aux_datadog_service_circle`, que é alimentada via Rivery a partir de uma fonte externa (ex. Google Sheets). O modelo apenas seleciona as colunas de interesse sem modificá-las.
+      **Recorrência de atualização:** Diária.
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: namespace
+        description: 'O nome do namespace (ou serviço) no Datadog, que serve como chave para o mapeamento. Copiado diretamente da coluna `namespace` da tabela de origem.'
+      - name: circle_id
+        description: 'O ID do Círculo para o qual o custo do namespace/serviço deve ser atribuído. Copiado diretamente da coluna `circle_id` da tabela de origem.'

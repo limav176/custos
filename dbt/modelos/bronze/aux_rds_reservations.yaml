@@ -1,0 +1,39 @@
+version: 2
+
+models:
+  - name: aux_rds_reservations
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Ingerir e preparar os dados de controle de alocação de Instâncias Reservadas (RIs) de RDS, permitindo a análise de cobertura e o chargeback correto dos custos para os Círculos.
+      **Escopo:** Inclui todas as reservas de RDS registradas na fonte de dados de controle, contendo informações sobre a quantidade, período de validade, `engine` e `multi_az`.
+      **Audiência:** Analistas de FinOps e Engenheiros de Dados.
+      **Processo:** Os dados são originados da tabela `custos_cloud_bronze.rivery_rds_reservations`, alimentada via Rivery. O modelo realiza a conversão de tipos de dados (`CAST`) para `BIGINT`, `INT` e `TIMESTAMP`. Além disso, aplica uma lógica de normalização (`CASE WHEN`, `LOWER`, `REPLACE`) nos campos `engine` e `multi_az` para garantir a consistência com outros modelos de dados.
+      **Recorrência de atualização:** Diária.
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: reservation_id
+        description: 'Identificador único da reserva ou do lote de reservas. Calculado como `CAST(reservation_id AS BIGINT)` a partir da origem.'
+      - name: circle_id
+        description: 'O ID do Círculo ao qual a reserva foi alocada para fins de chargeback. Copiado diretamente da coluna `circle_id` da origem.'
+      - name: reservations
+        description: 'A quantidade de instâncias reservadas neste lote. Calculado como `CAST(reservations AS INT)` a partir da origem.'
+      - name: reservation_start_time
+        description: 'Timestamp do início do período de validade da reserva. Calculado como `CAST(start_time AS TIMESTAMP)` a partir da origem.'
+      - name: reservation_end_time
+        description: 'Timestamp do fim do período de validade da reserva. Calculado como `CAST(end_time AS TIMESTAMP)` a partir da origem.'
+      - name: engine
+        description: 'Motor do banco de dados (ex. "postgresql"). Calculado com uma lógica CASE para normalizar os nomes (ex. "postgres" para "postgresql") e LOWER/REPLACE para padronização.'
+      - name: multi_az
+        description: 'Indica se a reserva é para instâncias "single-az" ou "multi-az". Calculado com `LOWER(REPLACE(multi_az, '' '', ''-''))` para padronização.'

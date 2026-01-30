@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: aws_account_names
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Fornecer uma tabela de mapeamento estática (DE/PARA) para traduzir o identificador numérico de uma conta AWS (`account_id`) em um nome amigável e legível (`account_name`), facilitando a identificação e a análise de custos.
+      **Escopo:** Inclui apenas a lista de contas AWS que estão explicitamente definidas na cláusula `VALUES` do modelo. Contas que não estão na lista não serão mapeadas.
+      **Audiência:** Engenheiros de Dados, Analistas de FinOps e qualquer pessoa que consuma relatórios de custos da AWS e precise de um contexto legível para os IDs das contas.
+      **Processo:** Os dados são definidos estaticamente através de uma Common Table Expression (CTE) com a cláusula `VALUES`. Não há fontes de dados externas; a tabela é criada e mantida manualmente no próprio código SQL.
+      **Recorrência de atualização:** Manual. A tabela é atualizada sempre que uma nova conta AWS é adicionada à organização ou quando um nome de conta precisa ser corrigido.
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: account_id
+        description: 'Identificador numérico único da conta AWS (ex. "887592687927"). Este valor é a chave para o mapeamento.'
+      - name: account_name
+        description: 'Nome amigável e descritivo da conta AWS (ex. "master", "analytics", "will-production").'

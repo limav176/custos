@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: aux_aws_account_circle
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Funcionar como uma tabela de mapeamento estática (DE/PARA) para associar contas AWS a um circle_id específico. Esta regra de alta precedência garante que todos os custos de uma conta sejam atribuídos a um único Círculo dono.
+      **Escopo:** Inclui um conjunto fixo de contas AWS cujos custos devem ser direcionados integralmente. Não se aplica a contas que não estão listadas manualmente no modelo.
+      **Audiência:** Modelos de staging de custos, como `stg_aws_cost_usage_report` e `stg_aws_eks_cost_usage_report`, que a utilizam para enriquecer os dados brutos de custo.
+      **Processo:** Os dados são gerados estaticamente a partir de uma CTE com a cláusula `VALUES` dentro do próprio modelo. Não há fontes externas. A tabela simplesmente seleciona as colunas `account_id` e `circle_id` desta CTE.
+      **Recorrência de atualização:** Manual. A tabela só é atualizada quando há uma alteração na propriedade de uma conta AWS, exigindo uma modificação direta no código SQL.
+
+    tags: ['bronze', 'will', 'custos_cloud', 'account', 'owner', 'circle_id', 'mapping']
+
+    columns:
+      - name: account_id
+        description: "O ID da conta da AWS, populado estaticamente. Serve como a chave para o mapeamento de custos."
+      - name: circle_id
+        description: "O ID do Círculo para o qual todos os custos da conta AWS correspondente serão atribuídos. Populado estaticamente no modelo."

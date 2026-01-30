@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: stg_mongodb_atlas_cost_usage_report
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Atuar como a tabela de "staging" para os relatórios de custo e uso do MongoDB Atlas, realizando a primeira camada de limpeza e transformação dos dados brutos.
+      **Escopo:** Inclui todos os registros de custo e uso provenientes da fonte. Não há filtros de data ou de tipo de recurso, abrangendo todos os dados fornecidos pelo MongoDB Atlas.
+      **Audiência:** Principalmente outros modelos dbt na camada silver, que consumirão estes dados já limpos e com as tags extraídas para realizar lógicas de atribuição de custo mais complexas.
+      **Processo:** Os dados são originados da tabela `custos_cloud_bronze.mongodb_atlas_cost_usage_report`. A principal transformação consiste em converter as colunas de data (`startdate`, `enddate`) de string para o formato TIMESTAMP e extrair os valores das chaves `CircleId`, `Circle` e `Environment` da coluna `tags` (que é uma string com formato JSON) para colunas dedicadas.
+      **Recorrência de atualização:** Diária.
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: start_date
+        description: "Data e hora de início do período de uso. Derivado da coluna `startdate` e convertido para TIMESTAMP."
+      - name: end_date
+        description: "Data e hora de fim do período de uso. Derivado da coluna `enddate` e convertido para TIMESTAMP."
+      - name: groupname
+        description: "Nome do grupo (projeto) no MongoDB Atlas. Copiado diretamente da coluna `groupname`."
+      - name: clustername
+        description: "Nome do cluster do MongoDB que gerou o custo. Copiado diretamente da coluna `clustername`."
+      - name: sku
+        description: "O código do produto (Stock Keeping Unit) que identifica o tipo de uso faturado. Copiado diretamente da coluna `sku`."
+      - name: unit
+        description: "A unidade de medida para a qual a `quantity` se refere. Copiado diretamente da coluna `unit`."
+      - name: quantity
+        description: "A quantidade de `unit` consumida no período. Copiado diretamente da coluna `quantity`."
+      - name: totalpricecents
+        description: "O preço total para o item de linha, em centavos. Copiado diretamente da coluna `totalpricecents`."
+      - name: unitpricedollars
+        description: "O preço unitário, em dólares, por uma unidade de `quantity`. Copiado diretamente da coluna `unitpricedollars`."
+      - name: tag_circle_id
+        description: "O ID do círculo. Extraído do primeiro elemento do array 'CircleId' na coluna `tags` usando a função `json_extract`."
+      - name: tag_circle
+        description: "O nome do círculo. Extraído do primeiro elemento do array 'Circle' na coluna `tags` usando a função `json_extract`."
+      - name: tag_environment
+        description: "O ambiente do recurso. Extraído do primeiro elemento do array 'Environment' na coluna `tags`."

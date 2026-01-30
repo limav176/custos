@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: aux_rds_instance_commited
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Servir como um motor de normalização para famílias e tamanhos de instâncias de banco de dados (RDS), traduzindo diversos tipos de instância da AWS em uma unidade de medida comum para análises de custo e utilização. É fundamental para o pilar de FinOps, habilitando a análise de cobertura de Instâncias Reservadas (RIs) e Savings Plans.
+      **Escopo:** Abrange uma lista massiva e estática de tipos de instância RDS para os motores `aurora-postgresql`, `aurora-mysql`, `postgresql`, `mysql` e `oracle`. O mapeamento está contido integralmente na cláusula `VALUES` do modelo. Instâncias não listadas estão fora do escopo.
+      **Audiência:** Analistas de FinOps, Engenheiros de Cloud e modelos da camada silver que precisam analisar custos de RDS de forma normalizada.
+      **Processo:** Os dados são definidos estaticamente através de uma Common Table Expression (CTE) com a cláusula `VALUES`. Para cada família de instância, uma `instance_commited` (unidade base) é definida, e um fator `multiply` é calculado para os outros tamanhos, representando sua equivalência em relação à base. Uma flag `eligible_commit` identifica instâncias recomendadas para compromissos de longo prazo.
+      **Recorrência de atualização:** Manual. A tabela é atualizada para refletir novas famílias de instâncias disponibilizadas pela AWS ou para ajustar a estratégia de instâncias elegíveis para compromisso.
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: eligible_commit
+        description: 'Flag booleana (`TRUE`/`FALSE`) que indica se uma família de instância é considerada uma boa candidata para compromissos de compra (Instâncias Reservadas/Savings Plans), baseado em critérios de performance e custo, como as instâncias Graviton.'
+      - name: engine
+        description: 'O motor de banco de dados (ex. "aurora-postgresql", "aurora-mysql", "sqlserver-se") ao qual a regra de normalização se aplica.'
+      - name: instance_commited
+        description: 'A instância de referência ou "unidade base" para uma determinada família e motor. Todos os outros tamanhos na família são convertidos para múltiplos desta unidade.'
+      - name: instance_size
+        description: 'O tamanho real da instância de RDS (ex. "db.r7g.large", "db.r7g.2xlarge") que está sendo normalizada. Este valor serve como chave de entrada para o mapeamento.'
+      - name: multiply
+        description: 'O fator numérico que representa quantas unidades da `instance_commited` são equivalentes à `instance_size`. É o coração da lógica de normalização.'

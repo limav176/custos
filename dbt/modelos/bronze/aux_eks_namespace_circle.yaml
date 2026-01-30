@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: aux_eks_namespace_circle
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Fornecer uma tabela de mapeamento (DE/PARA) para atribuir custos a Círculos (times) com base no namespace do EKS, especialmente para casos onde o tagueamento direto não é viável.
+      **Escopo:** Inclui todos os mapeamentos entre `namespace` de EKS e `circle_id` mantidos na fonte de dados. A ingestão é completa, sem filtros, trazendo todos os registros da origem.
+      **Audiência:** Engenheiros de Dados, Analistas de FinOps e times de SRE/Plataforma.
+      **Processo:** Ingestão direta (pass-through) da tabela `custos_cloud_bronze.rivery_aux_eks_namespace_circle`, que é alimentada via Rivery a partir de uma fonte externa (ex. Google Sheets). O modelo seleciona as colunas de mapeamento sem aplicar lógicas de transformação.
+      **Recorrência de atualização:** Diária.
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: namespace
+        description: 'O nome do namespace no EKS, que serve como chave para o mapeamento. Copiado diretamente da coluna `namespace` da tabela de origem.'
+      - name: circle_id
+        description: 'O ID do Círculo para o qual o custo do namespace deve ser atribuído. Copiado diretamente da coluna `circle_id` da tabela de origem.'

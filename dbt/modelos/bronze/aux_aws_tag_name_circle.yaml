@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: aux_aws_tag_name_circle
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Funcionar como uma tabela de mapeamento estática (DE/PARA) para associar o valor da tag `Name` de recursos AWS a um `circle_id` específico, usada principalmente para atribuir custos de infraestrutura compartilhada (como nós de EKS) ao Círculo responsável.
+      **Escopo:** Inclui um conjunto fixo de valores para a tag `Name`, como 'will-prod-shared-karpenter' e 'eks-will-prod-01'. Recursos cuja tag `Name` não corresponde a um valor na lista não são cobertos por este mapeamento.
+      **Audiência:** Principalmente o modelo de staging `stg_aws_cost_usage_report`, que a utiliza para atribuir custos de recursos de infraestrutura que não pertencem a um time de produto específico.
+      **Processo:** Os dados são gerados estaticamente a partir de uma CTE com a cláusula `VALUES` dentro do próprio modelo. A tabela final é criada selecionando as colunas `circle_id` e `tag_name` desta CTE, sem consultar fontes de dados externas.
+      **Recorrência de atualização:** Manual. Se a nomenclatura dos recursos de infraestrutura mudar ou novos clusters forem criados, esta tabela precisa ser atualizada.
+
+    tags: ['bronze', 'will', 'custos_cloud', 'tag', 'name', 'owner', 'circle_id', 'mapping']
+
+    columns:
+      - name: circle_id
+        description: "O ID do Círculo para o qual o custo do recurso com a `tag_name` correspondente será atribuído. O valor é definido estaticamente no modelo."
+      - name: tag_name
+        description: "O valor da tag 'Name' do recurso AWS, que serve como chave do mapeamento. O valor é definido estaticamente no modelo."

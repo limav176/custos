@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: aux_aws_tag_product_circle
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Funcionar como uma tabela de mapeamento estática (DE/PARA) para associar o valor da tag de produto (`tag_product`) a um `circle_id`, permitindo inferir o Círculo dono de um recurso quando a tag de Círculo está ausente, mas a de produto está presente.
+      **Escopo:** Inclui uma lista fixa de valores para a tag `Product`, como 'Teleport' e 'core-loan'. Recursos com tags de produto não listadas no modelo não são cobertos por este mapeamento.
+      **Audiência:** Principalmente o modelo de staging `stg_aws_cost_usage_report`, que a utiliza como uma das fontes para preencher o `circle_id` faltante em registros de custo.
+      **Processo:** Os dados são definidos estaticamente em uma Common Table Expression (CTE) com a cláusula `VALUES`. A tabela final é criada selecionando diretamente as colunas `circle_id` e `tag_product` dessa CTE, sem consultar fontes de dados externas.
+      **Recorrência de atualização:** Manual. Se um produto mudar de Círculo ou um novo produto for criado, esta tabela precisa ser atualizada diretamente no código SQL.
+
+    tags: ['bronze', 'will', 'custos_cloud', 'tag', 'product', 'owner', 'circle_id', 'mapping']
+
+    columns:
+      - name: circle_id
+        description: "O ID do Círculo para o qual o custo do recurso com a `tag_product` correspondente será atribuído. O valor é definido estaticamente no modelo."
+      - name: tag_product
+        description: "O valor da tag 'Product' do recurso AWS, que serve como chave do mapeamento. O valor é definido estaticamente no modelo."

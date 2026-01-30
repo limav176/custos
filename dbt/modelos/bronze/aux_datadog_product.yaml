@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: aux_datadog_product
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Funcionar como uma tabela de mapeamento estática (DE/PARA) que agrupa os nomes granulares de produtos do Datadog (`product_name`) em categorias de alto nível (`product_group`), simplificando a análise e agregação de custos.
+      **Escopo:** Inclui um conjunto fixo de produtos do Datadog, como 'infra_host' e 'logs_indexed_30day'. Produtos do Datadog que não estão explicitamente listados no modelo não serão categorizados.
+      **Audiência:** Modelos da camada silver que processam os custos do Datadog, permitindo o enriquecimento dos dados com uma dimensão de agrupamento para análises mais estratégicas.
+      **Processo:** Os dados são gerados estaticamente a partir de uma Common Table Expression (CTE) com a cláusula `VALUES` dentro do próprio modelo. A tabela final é criada selecionando as colunas `product_name` e `product_group` desta CTE, sem consultar fontes de dados externas.
+      **Recorrência de atualização:** Manual. Se novos produtos forem adquiridos no Datadog, eles precisam ser adicionados e categorizados aqui para que os custos sejam agrupados corretamente.
+
+    tags: ['bronze', 'will', 'custos_cloud', 'datadog', 'product', 'mapping']
+
+    columns:
+      - name: product_name
+        description: "O nome granular do produto Datadog, que serve como chave do mapeamento. O valor é definido estaticamente no modelo."
+      - name: product_group
+        description: "A categoria lógica ou grupo ao qual o produto pertence, como 'shared' ou 'logging'. O valor é definido estaticamente no modelo."

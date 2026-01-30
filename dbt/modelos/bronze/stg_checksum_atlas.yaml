@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: stg_checksum_atlas
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Validar a integridade e a completude dos dados de custo do MongoDB Atlas (checksum). A tabela fornece uma visão agregada mensal para ser comparada com os totais da fatura ou outras fontes de controle.
+      **Escopo:** Inclui todos os registros de custo do MongoDB Atlas. Os dados são agregados por mês, SKU e `circle_id`.
+      **Audiência:** Engenheiros de Dados e Analistas de FinOps responsáveis pela conciliação de custos.
+      **Processo:** Os dados são derivados da tabela `sources.custos_cloud_bronze.mongodb_atlas_cost_usage_report`. O modelo trunca a data para o início do mês, extrai o `circle_id` de um campo de tags JSON e agrupa os dados usando `GROUP BY` para somar a quantidade (`quantity`) e o custo (`totalpricecents`), que é convertido de centavos para dólares.
+      **Recorrência de atualização:** Diária.
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: start_date
+        description: 'Primeiro dia do mês de referência do custo. Calculado truncando a data da coluna `created` para o nível de mês.'
+      - name: table_name
+        description: 'Nome da tabela de origem dos dados. Valor fixo "mongodb_atlas_cost_usage_report" para identificar a fonte no processo de checksum.'
+      - name: sku
+        description: 'O código do produto (SKU) do MongoDB Atlas ao qual o custo se refere. Copiado diretamente da coluna `sku`.'
+      - name: circle_id
+        description: 'ID do Círculo extraído da coluna de tags em formato JSON. Se a tag não for encontrada, o valor é definido como "unknown_circle" usando `COALESCE`.'
+      - name: quantity
+        description: 'Soma da quantidade de uso para o respectivo SKU, Círculo e mês. Calculado como `SUM(CAST(quantity AS double))`.'
+      - name: cost
+        description: 'Soma do custo total em dólares para o respectivo SKU, Círculo e mês. Calculado como `SUM(CAST(totalpricecents AS DECIMAL(10,2))) / 100`.'

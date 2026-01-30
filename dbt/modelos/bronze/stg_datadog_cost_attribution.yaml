@@ -1,0 +1,41 @@
+version: 2
+
+models:
+  - name: stg_datadog_cost_attribution
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Atuar como a tabela de "staging" para os dados de atribuição de custo do Datadog, fornecendo uma base limpa e padronizada para análises de custo.
+      **Escopo:** Inclui todos os registros de custo faturados pelo Datadog, conforme extraídos da fonte. Não há filtros aplicados nesta camada; todos os dados da origem são carregados.
+      **Audiência:** Engenheiros de Dados e modelos da camada Silver que consumirão estes dados para enriquecimento e agregação.
+      **Processo:** O modelo realiza um `SELECT` direto da fonte `custos_cloud_bronze.datadog_cost_attribution`, selecionando um subconjunto de colunas relevantes. Não há transformações, agregações ou filtros aplicados, caracterizando-o como um modelo de passagem (pass-through).
+      **Recorrência de atualização:** Diária.
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: month
+        description: "O mês de referência para o qual o custo foi faturado."
+      - name: tags_service
+        description: "O nome do serviço do Datadog ao qual o custo foi atribuído (ex. 'apm', 'logs')."
+      - name: tags_circleid
+        description: "O ID do círculo que foi extraído das tags do recurso no Datadog."
+      - name: tags_aws_account
+        description: "A conta da AWS associada ao recurso monitorado pelo Datadog."
+      - name: family_type
+        description: "A família de produtos do Datadog (ex. 'Network Monitoring')."
+      - name: billing_type
+        description: "O tipo de faturamento (ex. 'on-demand', 'committed')."
+      - name: cost
+        description: "O valor monetário do custo atribuído."
+      - name: invoice_status
+        description: "O status da fatura (ex. 'issued')."

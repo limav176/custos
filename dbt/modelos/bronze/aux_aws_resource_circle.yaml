@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: aux_aws_resource_circle
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Funcionar como uma tabela de mapeamento estática (DE/PARA) para associar um identificador de recurso AWS (`resource_id`) a um `circle_id` específico. É uma regra de negócio granular, usada como último recurso para atribuir custos de recursos que não podem ser tagueados ou cujas tags não são confiáveis.
+      **Escopo:** Inclui uma lista manual de `resource_id` (ARNs ou IDs) que pertencem a duas categorias: `resources_deleted` (recursos já removidos, mas com custos residuais) e `resources_untaggable` (recursos que não suportam tagueamento). Recursos não listados não são afetados.
+      **Audiência:** Principalmente o modelo de staging `stg_aws_cost_usage_report`, que a utiliza para aplicar uma regra de atribuição de propriedade no nível mais granular possível.
+      **Processo:** Os dados são gerados estaticamente a partir de duas CTEs (`resources_deleted` e `resources_untaggable`) com a cláusula `VALUES`. As listas são então combinadas usando `UNION ALL` para formar a tabela final, que mapeia `resource_id` para `circle_id`. Não há fontes de dados externas.
+      **Recorrência de atualização:** Manual. É o local para corrigir a atribuição de custos de recursos específicos que não são corretamente cobertos por outras regras de automação.
+
+    tags: ['bronze', 'will', 'custos_cloud', 'resource', 'owner', 'circle_id', 'mapping']
+
+    columns:
+      - name: resource_id
+        description: "O identificador único do recurso AWS (ARN ou ID), que serve como chave do mapeamento. O valor é definido estaticamente no modelo."
+      - name: circle_id
+        description: "O ID do Círculo para o qual o custo do recurso correspondente será atribuído. O valor é definido estaticamente no modelo."

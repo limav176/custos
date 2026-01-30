@@ -1,0 +1,31 @@
+version: 2
+
+models:
+  - name: stg_labels_kubernetes_report
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Criar uma tabela de consulta (lookup table) que mapeia um namespace de Kubernetes ao seu Círculo (`circleid`) e ao nome do cluster, permitindo o enriquecimento de dados de custo.
+      **Escopo:** Inclui todos os namespaces que possuem a label `circleid` extraída de objetos do Kubernetes. Não há filtros de exclusão; todos os mapeamentos da fonte são considerados.
+      **Audiência:** Modelos da camada Silver que precisam atribuir custos de EKS a Círculos específicos.
+      **Processo:** O modelo funciona como um "pass-through", realizando uma seleção direta das colunas `namespace`, `circleid` e `cluster_name` da tabela de origem `custos_cloud_bronze.labels_kubernetes_report`, sem aplicar transformações ou agregações.
+      **Recorrência de atualização:** Diária.
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: namespace
+        description: 'O nome do namespace dentro de um cluster Kubernetes.'
+      - name: circleid
+        description: 'O ID do Círculo que foi atribuído ao namespace através de uma label no Kubernetes.'
+      - name: cluster_name
+        description: 'O nome do cluster Kubernetes onde o namespace está localizado.'

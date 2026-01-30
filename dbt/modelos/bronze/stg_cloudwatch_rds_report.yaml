@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: stg_cloudwatch_rds_report
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Preparar e limpar os dados de métricas de performance de instâncias RDS, coletados do AWS CloudWatch, para análises de otimização de custos (FinOps).
+      **Escopo:** Inclui métricas de performance (ex. CPUUtilization, DatabaseConnections) de instâncias RDS monitoradas. Não contém informações de custo, apenas de utilização.
+      **Audiência:** Engenheiros de FinOps, Administradores de Banco de Dados (DBAs) e Times de SRE.
+      **Processo:** Os dados são derivados da tabela `sources.custos_cloud_bronze.cloudwatch_rds_report`. O modelo realiza a normalização de dados, como padronizar os nomes dos motores de banco de dados (ex. 'postgres' para 'postgresql') e o status de Multi-AZ para garantir consistência e viabilizar joins com outras tabelas.
+      **Recorrência de atualização:** Diária.
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: start_date
+        description: 'Timestamp do início da coleta da métrica. Copiado diretamente da coluna `start_date`.'
+      - name: account_id
+        description: 'ID da conta AWS onde a instância RDS está localizada. Copiado diretamente da coluna `account_id`.'
+      - name: region
+        description: 'Região AWS da instância. Copiado diretamente da coluna `region`.'
+      - name: circle_id
+        description: 'ID do Círculo ao qual o custo da instância é atribuído. Copiado diretamente da coluna `circle_id`.'
+      - name: instance_name
+        description: 'Nome amigável da instância RDS. Copiado diretamente da coluna `instance_name`.'
+      - name: resource_id
+        description: 'ARN (Amazon Resource Name) único da instância RDS. Copiado diretamente da coluna `resource_id`.'
+      - name: instance_size
+        description: 'Tamanho (classe) da instância RDS (ex. "db.t3.medium"). Copiado diretamente da coluna `instance_size`.'
+      - name: engine
+        description: 'Motor do banco de dados. Derivado da coluna `engine`, com lógica CASE para normalizar nomes como "postgres" para "postgresql" e "oracle-se2" para "oracle".'
+      - name: multi_az
+        description: 'Indica se a instância está em modo "single-az" ou "multi-az". Derivado da coluna `multi_az`, com o valor convertido para minúsculas.'
+      - name: metric_name
+        description: 'Nome da métrica coletada do CloudWatch (ex. "CPUUtilization"). Copiado diretamente da coluna `metric_name`.'
+      - name: metric_statistics
+        description: 'A estatística aplicada à métrica (ex. "Average", "p95"). Copiado diretamente da coluna `metric_statistics`.'
+      - name: metric_value
+        description: 'O valor numérico da métrica para o timestamp especificado. Convertido para DOUBLE a partir da coluna `metric_value`.'

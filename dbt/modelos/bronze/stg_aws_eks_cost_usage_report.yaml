@@ -1,0 +1,53 @@
+version: 2
+
+models:
+  - name: stg_aws_eks_cost_usage_report
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Isolar, limpar e preparar os dados de custo e uso específicos do EKS (Elastic Kubernetes Service), permitindo a atribuição detalhada dos custos de Kubernetes para análise de gastos por cluster e namespace.
+      **Escopo:** Inclui apenas os custos onde a operação (`line_item_operation`) é 'EKSPod-EC2', focando exclusivamente nos custos de pods Kubernetes. Exclui linhas de 'DiscountedUsage' para evitar dupla contagem.
+      **Audiência:** Engenheiros de FinOps, Times de Plataforma e donos de produtos que utilizam EKS.
+      **Processo:** Os dados são derivados da tabela `sources.custos_cloud_bronze.aws_cost_usage_report`. O modelo filtra os registros de EKS e, em seguida, extrai e constrói metadados valiosos como `cluster_arn`, `cluster_name` e `namespace` a partir da manipulação da coluna `line_item_resource_id`. O nome do produto é normalizado para 'Kubernetes'.
+      **Recorrência de atualização:** Diária.
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: start_date
+        description: 'Data de início do período de uso do recurso. Copiado diretamente da coluna `line_item_usage_start_date`.'
+      - name: resource_id
+        description: 'Identificador único do recurso a nível de Pod do Kubernetes. Copiado diretamente da coluna `line_item_resource_id`.'
+      - name: cluster_arn
+        description: 'ARN (Amazon Resource Name) do cluster EKS. Construído a partir da manipulação da coluna `line_item_resource_id` para substituir "pod" por "cluster".'
+      - name: cluster_name
+        description: 'Nome do cluster EKS. Extraído da segunda parte do campo `cluster_arn` gerado.'
+      - name: parent_resource_id
+        description: 'ID da instância EC2 que hospeda o pod. Copiado diretamente da coluna `split_line_item_parent_resource_id`.'
+      - name: namespace
+        description: 'Namespace do Kubernetes ao qual o pod pertence. Extraído da terceira parte da coluna `line_item_resource_id`.'
+      - name: billing_origin
+        description: 'Entidade de faturamento da AWS. Copiado diretamente da coluna `bill_billing_entity`.'
+      - name: account_id
+        description: 'ID da conta AWS onde o custo foi incorrido. Copiado diretamente da coluna `line_item_usage_account_id`.'
+      - name: region
+        description: 'Região AWS onde o recurso está localizado. Copiado diretamente da coluna `product_region`.'
+      - name: usage_type
+        description: 'Tipo de uso que está sendo medido (ex. "USE2-K8S:EC2-vCPU-Hours"). Copiado diretamente da coluna `line_item_usage_type`.'
+      - name: pricing_term
+        description: 'Termo de precificação do custo (ex. "OnDemand", "Reserved"). Copiado diretamente da coluna `pricing_term`.'
+      - name: aws_product_name
+        description: 'Nome do produto AWS. Valor fixo atribuído como "Kubernetes" para todos os registros deste modelo.'
+      - name: split_cost
+        description: 'Custo rateado para o recurso (pod) após a divisão dos custos do nó EC2. Copiado diretamente da coluna `split_line_item_split_cost`.'
+      - name: unused_cost
+        description: 'Custo do recurso não utilizado (parte do rateio). Copiado diretamente da coluna `split_line_item_unused_cost`.'

@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: aux_mongodb_atlas_resource_tags
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Criar uma tabela de dimensão (lookup table) que mapeia cada `clustername` do MongoDB Atlas ao seu conjunto de tags mais recente e válido. O objetivo é fornecer a "última foto válida" das tags de um cluster, que pode ser usada para preencher tags faltantes em registros de custo.
+      **Escopo:** Inclui apenas clusters que possuem um `clustername` não nulo e que tenham pelo menos uma das tags (`CircleId`, `Circle` ou `Environment`) preenchida. O `tag_circle_id` é validado contra a tabela `rivery_holaspirit`, e IDs não encontrados são definidos como nulos.
+      **Audiência:** Modelos da camada silver que processam os custos do MongoDB Atlas, Engenheiros de Dados e Analistas de FinOps que precisam garantir uma atribuição de custos consistente ao longo do tempo.
+      **Processo:** Os dados são derivados das tabelas `mongodb_atlas_cost_usage_report` e `rivery_holaspirit`. A lógica extrai as tags de um campo JSON e identifica a data mais recente para cada combinação de cluster e tags. Em seguida, seleciona o conjunto de tags que estava ativo na data mais recente em que o cluster foi registrado e valida o `tag_circle_id` contra a tabela `rivery_holaspirit`.
+      **Recorrência de atualização:** Diária.
+
+    tags: ['bronze', 'will', 'custos_cloud', 'mongodb', 'atlas', 'tags', 'mapping', 'latest']
+
+    columns:
+      - name: clustername
+        description: "O nome do cluster do MongoDB Atlas. Chave primária da tabela."
+      - name: tag_circle_id
+        description: "O ID do círculo mais recente associado ao cluster, extraído da tag `CircleId`. Será nulo se o ID não for um círculo válido no Holaspirit."
+      - name: tag_circle
+        description: "O nome do círculo mais recente associado ao cluster, extraído da tag `Circle`."
+      - name: tag_environment
+        description: "O ambiente mais recente associado ao cluster, extraído da tag `Environment`."

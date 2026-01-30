@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: aux_mongodb_atlas_sku_circle
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Funcionar como uma tabela de mapeamento estática (DE/PARA) que associa SKUs específicos do MongoDB Atlas a um `circle_id`. É usada para atribuir custos de serviços compartilhados ou de plataforma (ex. 'ATLAS_SUPPORT' ou 'ATLAS_AWS_PRIVATE_ENDPOINT') ao Círculo que é funcionalmente responsável por eles.
+      **Escopo:** O mapeamento inclui apenas um conjunto fixo de SKUs de plataforma definidos estaticamente no modelo. Qualquer SKU que não esteja explicitamente listado na cláusula `VALUES` está fora do escopo desta tabela.
+      **Audiência:** Modelos da camada silver que processam os custos do MongoDB Atlas, Engenheiros de Dados e Analistas de FinOps.
+      **Processo:** Os dados são definidos estaticamente através de uma Common Table Expression (CTE) com a cláusula `VALUES`. Não há fontes de dados externas; a tabela é criada e mantida manualmente no próprio código SQL.
+      **Recorrência de atualização:** Manual. A tabela só é atualizada quando há uma necessidade de negócio para adicionar, remover ou alterar o mapeamento de um SKU.
+
+    tags: ['bronze', 'will', 'custos_cloud', 'mongodb', 'atlas', 'sku', 'mapping']
+
+    columns:
+      - name: circle_id
+        description: "O ID do Círculo para o qual o custo do `sku` correspondente será atribuído."
+      - name: sku
+        description: "O SKU (Stock Keeping Unit) do MongoDB Atlas. Chave do mapeamento."

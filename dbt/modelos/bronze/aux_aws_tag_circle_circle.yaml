@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: aux_aws_tag_circle_circle
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Fornecer um mapeamento estático entre tags de recursos AWS e seus respectivos IDs de círculo (time) para atribuição de custos. Esta tabela serve como uma lookup table centralizada que define como os custos de recursos tagueados devem ser distribuídos entre os diferentes times da organização.
+      **Escopo:** Inclui 308 mapeamentos predefinidos cobrindo todas as tags de recursos AWS utilizadas pela organização, incluindo variações de nomenclatura (ex. 'Cartões', 'Cartoes', 'Cartes'). O mapeamento abrange times como Account, Card, CXM, DIP, Finance, Fraud Prevention, Marketing, Platform Engineering, entre outros.
+      **Audiência:** Engenheiros de Dados, Analistas de FinOps, times de Platform Engineering e gestores responsáveis pela alocação de custos de nuvem.
+      **Processo:** Tabela estática definida via Common Table Expression (CTE) com mapeamentos hardcoded. Não há transformações ou joins - os dados são definidos diretamente no código SQL como tuplas de (tag_circle, circle_id). Cada linha representa um mapeamento específico entre uma tag encontrada nos recursos AWS e o ID do círculo responsável.
+      **Recorrência de atualização:** Estática - atualizada apenas quando há mudanças na estrutura organizacional ou novas tags são introduzidas.
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: tag_circle
+        description: 'Nome da tag encontrada nos recursos da AWS que identifica o time ou área responsável. Inclui variações de nomenclatura para garantir cobertura completa (ex. "Cartões", "Cartoes", "Cartes"). Esta coluna serve como chave primária para o mapeamento de custos.'
+      - name: circle_id
+        description: 'Identificador único do círculo (time) no sistema de gestão organizacional. Este ID é utilizado para agrupar e atribuir custos de recursos AWS ao time correto. Ex. "62212eb60589bb79515a3995" para o time de Cartões, "6299348e231a6611ae55f82f" para CXM.' 

@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: stg_checksum_datadog
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Validar a integridade e a completude dos dados de custo do Datadog (checksum). A tabela fornece uma visão agregada mensal para ser comparada com os totais da fatura do Datadog.
+      **Escopo:** Inclui todos os custos atribuídos do Datadog, mas exclui explicitamente registros onde `billing_type` é 'total' e onde `family_type` termina em '_cost_sum' para evitar dupla contagem de subtotais. Registros com custo zero ou negativo também são filtrados.
+      **Audiência:** Engenheiros de Dados e Analistas de FinOps responsáveis pela conciliação de custos do Datadog.
+      **Processo:** Os dados são derivados da tabela `sources.custos_cloud_bronze.datadog_cost_attribution`. O modelo trunca a data para o início do mês e agrupa os dados por `circle_id`, `family_type` e `billing_type` para calcular o custo total, que é a soma da coluna `cost`.
+      **Recorrência de atualização:** Diária.
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: start_date
+        description: 'Primeiro dia do mês de referência do custo. Calculado truncando a data da coluna `month` para o nível de mês.'
+      - name: table_name
+        description: 'Nome da tabela de origem dos dados. Valor fixo "datadog_cost_attribution" para identificar a fonte no processo de checksum.'
+      - name: circle_id
+        description: 'ID do Círculo ao qual o custo é atribuído. Copiado diretamente da coluna `tags_circleid`.'
+      - name: product_name
+        description: 'O nome da família de produtos do Datadog (ex. "infra_hosts", "logs"). Copiado diretamente da coluna `family_type`.'
+      - name: billing_type
+        description: 'O tipo de faturamento do custo (ex. "on_demand", "committed"). Copiado diretamente da coluna `billing_type`.'
+      - name: cost
+        description: 'Soma do custo total em dólares para o respectivo produto, Círculo e mês. Calculado como `SUM(CAST(cost AS DOUBLE))`.'

@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: aux_mongodb_atlas_untagged_clusters_circle
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Servir como uma tabela de mapeamento estática (DE/PARA) que associa manualmente o nome de um cluster do MongoDB Atlas (`cluster_name`) a um `circle_id`, garantindo que custos de clusters sem tags sejam alocados ao Círculo correto.
+      **Escopo:** Inclui apenas os clusters que estão explicitamente listados na cláusula `VALUES` do modelo. Clusters sem tag que não estão nesta lista não serão mapeados por esta lógica.
+      **Audiência:** Engenheiros de Dados e modelos da camada silver (ex. `stg_mongodb_atlas_cost_usage_report`) que precisam atribuir custos de recursos não etiquetados.
+      **Processo:** Os dados são definidos estaticamente através de uma Common Table Expression (CTE) com a cláusula `VALUES`. A tabela é criada e mantida manualmente no próprio código SQL, funcionando como uma regra de negócio para atribuição de custos órfãos.
+      **Recorrência de atualização:** Manual. A tabela é atualizada sempre que um novo cluster sem tag precisa ser mapeado ou um mapeamento existente precisa ser corrigido.
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: circle_id
+        description: 'Identificador único (ID) do Círculo ao qual o custo do cluster será atribuído. Chave estrangeira para a tabela de dimensões `circles`.'
+      - name: cluster_name
+        description: 'Nome do cluster do MongoDB Atlas (ex. "credit-data-platform", "growthbook") que não possui uma tag de Círculo. Este valor é a chave para o mapeamento.'

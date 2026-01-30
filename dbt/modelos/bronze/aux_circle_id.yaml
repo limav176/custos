@@ -1,0 +1,31 @@
+version: 2
+
+models:
+  - name: aux_circle_id
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Servir como a fonte da verdade (source of truth) para a estrutura organizacional da empresa, fornecendo os dados mestres da dimensão de Círculos (times/squads). É essencial para enriquecer dados de custo e outros datasets com a hierarquia e nomes dos times.
+      **Escopo:** Inclui todos os Círculos e suas relações hierárquicas registrados na plataforma Holaspirit. A tabela contém o ID de cada Círculo, seu nome e o ID do Círculo pai.
+      **Audiência:** Toda a empresa, especialmente Analistas de Dados, Engenheiros de Dados e Analistas de FinOps que precisam correlacionar dados a estruturas de times.
+      **Processo:** Ingestão direta (pass-through) dos dados da tabela `custos_cloud_bronze.rivery_holaspirit`, alimentada via Rivery a partir da API do Holaspirit. O modelo seleciona as colunas de identificação e hierarquia sem aplicar transformações.
+      **Recorrência de atualização:** Diária.
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: holaspirit_id
+        description: 'O identificador único de um Círculo (time) na plataforma Holaspirit. Serve como a chave primária da dimensão. Copiado diretamente da coluna `holaspirit_id` da origem.'
+      - name: holaspirit_name
+        description: 'O nome legível do Círculo. Copiado diretamente da coluna `holaspirit_name` da origem.'
+      - name: parent_holaspirit_id
+        description: 'O ID do Círculo pai, usado para construir a relação hierárquica entre os times. Copiado diretamente da coluna `parent_holaspirit_id` da origem.'

@@ -1,0 +1,51 @@
+version: 2
+
+models:
+  - name: stg_aws_rds_prices
+    meta:
+      domain: custos_cloud
+      layer: bronze
+      schema: custos_cloud_bronze
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Criar uma tabela de consulta (lookup table) com preços específicos e relevantes de instâncias AWS RDS para a empresa. A tabela é usada para enriquecer dados de custo e alimentar motores de recomendação de otimização (FinOps).
+      **Escopo:** Inclui apenas preços de instâncias RDS de geração atual para os motores 'PostgreSQL', 'MySQL', 'Oracle', 'Aurora MySQL' e 'Aurora PostgreSQL' nas regiões 'sa-east-1' e 'us-east-1'. O escopo é limitado a contratos 'OnDemand' e '1yr No Upfront'. Instâncias Oracle com licença 'Bring your own license' são excluídas.
+      **Audiência:** Engenheiros de FinOps, Analistas de Custo em Nuvem e modelos dbt da camada silver que processam custos de RDS.
+      **Processo:** Os dados são derivados da tabela `sources.custos_cloud_bronze.fixed_upload_rds_prices`, que é uma ingestão de dados do AWS Price List. O modelo aplica uma série de filtros rigorosos nas cláusulas `WHERE` para selecionar o subconjunto de preços desejado e normaliza os nomes dos motores e opções de deploy.
+      **Recorrência de atualização:** Manual (depende de novo upload do arquivo de preços).
+
+    tags: ['bronze', 'will', 'custos_cloud']
+
+    columns:
+      - name: aws_product_name
+        description: 'Nome do produto AWS. Copiado da coluna `servicename` e filtrado para ser sempre "Amazon Relational Database Service".'
+      - name: contract_term
+        description: 'Termo do contrato (ex. "OnDemand", "Reserved"). Derivado da coluna `termtype`.'
+      - name: contract_purchase
+        description: 'Opção de compra para contratos reservados. Derivado de `purchaseoption`, com `COALESCE` para preencher "OnDemand" se nulo.'
+      - name: contract_length
+        description: 'Duração do contrato para instâncias reservadas. Derivado de `leasecontractlength`, com `COALESCE` para preencher "OnDemand" se nulo.'
+      - name: region
+        description: 'Região AWS onde o preço é válido. Copiado de `regioncode` e filtrado para "sa-east-1" e "us-east-1".'
+      - name: engine
+        description: 'Motor do banco de dados. Derivado de `databaseengine`, com nome normalizado para minúsculas e com espaços substituídos por hífens.'
+      - name: multi_az
+        description: 'Indica a configuração de deploy. Derivado de `deploymentoption`, com nome normalizado para minúsculas e com espaços substituídos por hífens.'
+      - name: instance_size
+        description: 'Tamanho ou classe da instância RDS. Copiado diretamente da coluna `instancetype`.'
+      - name: current_generation
+        description: "Flag booleana que indica se a instância é da geração mais recente. Calculado com base na coluna `currentgeneration`, retornando `true` se o valor for 'Yes'."
+      - name: vcpu
+        description: 'Número de vCPUs da instância. Convertido para INTEGER a partir da coluna `vcpu`.'
+      - name: memory
+        description: "Quantidade de memória da instância em GiB. Calculado a partir da coluna `memory`, removendo o sufixo ' GiB' e convertendo para DOUBLE."
+      - name: cost
+        description: 'Custo por hora da instância em USD. Convertido para DOUBLE a partir da coluna `priceperunitusd`.'
+      - name: storage
+        description: 'Tipo de armazenamento compatível. Copiado da coluna `storage` e filtrado para "EBS Only" ou "Aurora IO Optimization Mode".'
