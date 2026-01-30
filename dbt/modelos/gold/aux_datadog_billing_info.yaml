@@ -1,0 +1,51 @@
+version: 2
+
+models:
+  - name: aux_datadog_billing_info
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:**
+      Funcionar como uma tabela de dimensão ou "lookup table" estática que armazena as informações de precificação e faturamento dos produtos da Datadog. Ela centraliza os detalhes de custos unitários, tanto para uso comprometido (contratado) quanto sob demanda.
+
+      **Escopo e Lógica:**
+      Esta tabela é única porque não é alimentada por uma fonte de dados externa. Seus valores são "hardcoded" diretamente no arquivo SQL usando uma CTE com a cláusula `VALUES`.
+      - **Fonte de Dados:** Nenhuma. Os dados são estáticos e definidos no próprio modelo.
+      - **Lógica Principal:**
+        - A query cria uma tabela `billing_info` com colunas que descrevem os produtos Datadog e seus respectivos preços.
+        - Cada linha representa um produto (ex. `logs_indexed_30day`, `apm_host`) e contém seus custos unitários, detalhes de compromisso e a unidade de cobrança.
+      - **Manutenção:** Qualquer alteração nos preços ou nos contratos com a Datadog exige uma modificação manual direta neste modelo de dbt.
+
+      **Audiência:**
+      Engenheiros de Dados e FinOps. Esta tabela é usada como uma fonte de consulta (`JOIN`) por outros modelos que processam dados de uso do Datadog para calcular custos, economias e analisar o consumo versus o contratado.
+
+      **Processo:**
+      A tabela é materializada durante a execução do dbt e permanece inalterada até que o código SQL seja modificado.
+
+      **Recorrência:**
+      Apenas quando o dbt é executado, mas os dados só mudam com intervenção manual.
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: product_name
+        description: "O nome do produto Datadog, conforme definido no SQL. Chave para JOIN com tabelas de uso."
+      - name: committed_unit_cost
+        description: "O custo unitário para o uso comprometido (com desconto contratual)."
+      - name: committed_total_cost
+        description: "O custo total mensal para o volume de unidades comprometidas no contrato."
+      - name: committed_total_units
+        description: "O número total de unidades (ex. hosts, GB) que estão incluídas no compromisso mensal contratado. Este valor, multiplicado pelo `committed_unit_cost`, resulta no `committed_total_cost`."
+      - name: billing_unit
+        description: "A descrição da unidade de cobrança (ex. 'Per 1M indexed logs, per month')."
+      - name: on_demand_unit_cost
+        description: "O custo unitário para o uso sob demanda (sem desconto), também conhecido como 'pay-as-you-go'."

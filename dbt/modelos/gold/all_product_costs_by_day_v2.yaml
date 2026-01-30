@@ -1,0 +1,176 @@
+version: 2
+
+models:
+  - name: all_product_costs_by_day_v2
+    description: >
+      **Propósito:** Unificar todos os custos de nuvem (Plataforma de Dados, AWS,
+      EKS, MongoDB Atlas e Datadog) em uma única tabela, servindo como a fonte de
+      verdade centralizada para análises de custo em toda a empresa.
+
+      **Escopo:** A tabela consolida dados de seis fontes de custo distintas em
+      granularidade diária:
+
+      - `data_platform_costs_day_usage` (Plataforma de Dados)
+      - `aws_eks_costs_day_usage` (custos de Kubernetes/EKS)
+      - `aws_costs_day_usage` (custos gerais de AWS)
+      - `aws_costs_day_untagged` (custos de AWS sem tags)
+      - `mongodb_atlas_costs_day_usage` (MongoDB Atlas)
+      - `datadog_costs_month` (Datadog, mensal convertido para data)
+
+      Custos de AWS e EKS são incluídos **somente quando não há** uma linha
+      correspondente na fonte de Plataforma de Dados para o mesmo `resource_id`
+      e `start_date`, evitando dupla contagem de custos já rateados pela
+      plataforma.
+
+      **Audiência:** Engenheiros de FinOps, líderes de Círculos, times de
+      Plataforma de Dados e qualquer pessoa que precise de uma visão consolidada
+      e detalhada dos custos de nuvem e dos produtos da plataforma.
+
+      **Processo:** O modelo segue estes passos principais:
+      - `data_platform`: agrega custos diários da Plataforma de Dados a partir de
+        `data_platform_costs_day_usage`, projetando:
+          - `provider = 'data_platform'`
+          - `resource_id = id_resource` (recurso técnico de infra)
+          - `tag_name = id_specific_resource` (workload/produto da plataforma)
+          - `resource_type = 'data_platform_service'`.
+      - `eks`: lê `aws_eks_costs_day_usage`, agrupa por namespace e soma
+        `split_cost + unused_cost`. Aplica um **left anti join** com
+        `data_platform` para excluir recursos/datas já cobertos pela Plataforma
+        de Dados e projeta:
+          - `provider = 'kubernetes'`
+          - `resource_id = namespace`
+          - `resource_type = 'kubernetes_namespace'`.
+      - `aws_costs`: lê `aws_costs_day_usage`, soma `unblended_cost +
+        reservation_cost` e também aplica um **left anti join** com
+        `data_platform` via identificador composto de recurso. Apenas custos que
+        não estão na Plataforma de Dados são mantidos.
+      - `aws_untagged`: lê `aws_costs_day_untagged` e agrega custos de recursos
+        sem tags.
+      - `mongodb`: lê `mongodb_atlas_costs_day_usage` e agrega custos diários por
+        `cluster_name`.
+      - `datadog`: lê `datadog_costs_month`, converte `month` para `start_date` e
+        agrega custos mensais por `service`.
+
+      Na CTE `final`, todas as fontes são unidas via `UNION ALL`, mapeando as
+      colunas específicas para um esquema comum padronizado.
+
+      **Recorrência de atualização:** Diária.
+
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    tags:
+      - "camada:gold"
+      - "dominio:custos_cloud"
+      - "finalidade:agregacao_de_custos"
+      - "provedor:aws"
+      - "provedor:eks"
+      - "provedor:mongodb_atlas"
+      - "provedor:datadog"
+      - "granularidade:diaria"
+
+    columns:
+      - name: start_date
+        description: >
+          Data de referência em que o custo foi incorrido.
+          - Para fontes diárias (`data_platform_costs_day_usage`, `aws_eks_costs_day_usage`,
+            `aws_costs_day_usage`, `aws_costs_day_untagged`,
+            `mongodb_atlas_costs_day_usage`), provém de `start_date` (ou equivalente)
+            truncado/cast para `DATE`.
+          - Para Datadog (`datadog_costs_month`), provém da coluna `month`
+            convertida para `DATE`.
+
+      - name: provider
+        description: >
+          Identifica a plataforma/provedor que originou o custo. É um valor fixo
+          atribuído por fonte:
+          - `'data_platform'` para custos da Plataforma de Dados
+            (`data_platform_costs_day_usage`);
+          - `'kubernetes'` para custos de EKS (`aws_eks_costs_day_usage`);
+          - `'aws'` para custos gerais de AWS (`aws_costs_day_usage`,
+            `aws_costs_day_untagged`);
+          - `'mongodb'` para custos de MongoDB Atlas
+            (`mongodb_atlas_costs_day_usage`);
+          - `'datadog'` para custos do Datadog (`datadog_costs_month`).
+
+      - name: account_name
+        description: >
+          Nome da conta associada ao custo.
+          - Para AWS e EKS, corresponde ao `account_name` das tabelas de origem.
+          - Para Plataforma de Dados, é herdado de `data_platform_costs_day_usage`.
+          - Para MongoDB Atlas e Datadog, é fixado como `'mongodb'` e `'datadog'`
+            respectivamente, garantindo padronização mesmo quando não há conceito
+            de “conta” igual ao da AWS.
+
+      - name: circle_id
+        description: >
+          Identificador do Círculo (time/unidade organizacional) ao qual o custo
+          foi atribuído na camada anterior, herdado diretamente das tabelas de
+          origem (`data_platform_costs_day_usage`, `aws_*`, `mongodb_atlas_*`,
+          `datadog_costs_month`).
+          É a chave principal para análise de custos por time.
+
+      - name: product_name
+        description: >
+          Nome específico do produto, serviço ou SKU associado ao custo.
+          - Para Plataforma de Dados, é o `product_name` do workload da plataforma
+            (ex.: `DBT (Lake 2)`, `Looker (Athena)`, `Custom ETL (Lake 1)`).
+          - Para AWS geral e não tagueado, é `aws_product_name`.
+          - Para EKS, é fixado como `'kubernetes'`.
+          - Para MongoDB Atlas, é mapeado de `sku`.
+          - Para Datadog, vem de `product_name` em `datadog_costs_month`.
+
+      - name: resource_id
+        description: >
+          Identificador do recurso específico que incorreu no custo, normalizado a
+          partir de diferentes fontes. Exemplos:
+          - Plataforma de Dados: `id_resource`, representando o recurso técnico
+            (ex.: identificador composto de conta/região/recurso no lake).
+          - Kubernetes/EKS: `namespace` do cluster.
+          - AWS geral e não tagueado: `resource_id` da fatura AWS.
+          - MongoDB Atlas: `cluster_name`.
+          - Datadog: `service`.
+
+          É a principal chave de “recurso” para análises de drill-down técnico.
+
+      - name: tag_name
+        description: >
+          Nome associado ao recurso, derivado de uma tag ou campo de nome.
+          - Plataforma de Dados: `id_specific_resource`, representando o workload
+            lógico (ex.: `dbt/<tabela>`, `looker/<usuario>`, `sandbox/<usuario>`).
+          - EKS: `namespace`.
+          - AWS geral e não tagueado: `tag_name` (tipicamente a tag `Name`).
+          - MongoDB Atlas: `cluster_name`.
+          - Datadog: `service`.
+
+      - name: resource_type
+        description: >
+          Tipo de entidade que o `resource_id` representa. É um valor fixo
+          dependente da fonte:
+          - `'data_platform_service'` para recursos da Plataforma de Dados
+            (`data_platform_costs_day_usage`);
+          - `'kubernetes_namespace'` para recursos de Kubernetes/EKS;
+          - `'aws_resource_id'` para recursos de AWS;
+          - `'mongodb_atlas_cluster_name'` para clusters do MongoDB Atlas;
+          - `'datadog_service'` para serviços monitorados no Datadog.
+
+      - name: total_cost
+        description: >
+          Valor monetário total do custo, agregado por todas as dimensões da linha
+          (`start_date`, `provider`, `account_name`, `circle_id`, `product_name`,
+          `resource_id`, `tag_name`, `resource_type`).
+          A fórmula de agregação varia por fonte:
+          - Plataforma de Dados: `SUM(cost)` de `data_platform_costs_day_usage`
+            (já é custo rateado por produto da plataforma e círculo).
+          - AWS geral e não tagueado: `SUM(unblended_cost + reservation_cost)`.
+          - EKS: `SUM(split_cost + unused_cost)`.
+          - MongoDB Atlas e Datadog: `SUM(cost)`.
+
+          Para AWS e EKS, apenas custos que **não** estão cobertos pela Plataforma
+          de Dados (mesmo recurso/data) são considerados, evitando duplicidades.

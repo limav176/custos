@@ -1,0 +1,41 @@
+version: 2
+
+models:
+  - name: aws_costs_month_untagged
+    description: >
+      **Propósito:** Alocar os custos "não etiquetados" (`untagged`) da AWS, que não possuem atribuição direta a um Círculo, de forma proporcional ao uso geral de serviços por cada Círculo para garantir que todos os custos sejam contabilizados.
+      **Escopo:** A alocação considera os custos mensais totais classificados como não etiquetados na tabela `silver.aws_costs_untagged` e os distribui com base nos custos de uso mensais por Círculo, agregados na tabela `gold.aws_costs_month_usage`.
+      **Audiência:** Engenheiros de FinOps, gestores financeiros e líderes de Círculos.
+      **Processo:** O custo total não etiquetado é agregado mensalmente a partir de `silver.aws_costs_untagged`. Em seguida, uma taxa de alocação (`rate`) é calculada para cada Círculo com base na sua proporção de uso em `gold.aws_costs_month_usage`. O custo final é o produto do custo total não etiquetado pela taxa do Círculo.
+      **Recorrência de atualização:** Diária.
+
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    tags: 
+      - "camada:gold"
+      - "dominio:custos_cloud"
+      - "provedor:aws"
+      - "tipo_de_custo:untagged"
+      - "logica:alocacao_proporcional"
+      - "granularidade:mensal"
+
+    columns:
+      - name: start_date
+        description: "Primeiro dia do mês de referência do custo, usado como chave de junção entre o custo total não tagueado e as taxas de rateio."
+      - name: billing_origin
+        description: "Origem da informação de faturamento (ex. 'cost_and_usage_report'). Proveniente da agregação de custos não tagueados."
+      - name: aws_product_name
+        description: "Nome do produto/serviço AWS ao qual o custo não tagueado original estava associado. Proveniente da agregação de custos não tagueados."
+      - name: circle_id
+        description: "ID do Círculo (time) que está recebendo a fração do custo não tagueado, com base em seu percentual de uso."
+      - name: cost
+        description: "Valor monetário do custo não tagueado alocado ao círculo. Calculado como `custo_total_untagged * taxa_de_uso_do_circulo`."

@@ -1,0 +1,64 @@
+version: 2
+
+models:
+  - name: anomaly_costs_product_by_week
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:**
+      Atuar como um sistema de alerta proativo para detectar anomalias de custos. A tabela identifica aumentos de gastos semanais significativos por produto e círculo, comparando o custo de uma semana com a mesma semana do mês anterior.
+
+      **Escopo e Lógica:**
+      A tabela implementa uma lógica de detecção de anomalias em várias etapas.
+      - **Fonte de Dados:**
+        - `gold.all_product_costs_by_day`: A fonte de verdade consolidada para todos os custos diários.
+      - **Lógica Principal:**
+        1. **`weekly_cost` (Agregação Semanal):**
+           - Os custos diários são agregados em "semanas" fixas (dias 1-7, 8-14, etc.) para os últimos 3 meses.
+           - Custos irrelevantes para a análise de anomalia (como 'shared' e 'datadog') e a semana atual incompleta são filtrados.
+        2. **`previous_month_weekly_cost` (Comparação Temporal):**
+           - A função de janela `LAG()` é usada para buscar o custo da mesma semana, círculo e produto do mês imediatamente anterior. Isso cria uma visão `custo_atual` vs `custo_anterior`.
+        3. **`latest_weeks` (Foco no Recente):**
+           - Esta CTE garante que a análise se concentre apenas nos dados mais recentes, identificando o último mês completo para cada semana.
+        4. **Seleção Final (Filtros de Anomalia):**
+           - A query final junta os dados e aplica um conjunto de filtros rigorosos para definir uma anomalia. Um alerta é gerado somente se **TODAS** as seguintes condições forem atendidas:
+             - O custo aumentou (`weekly_cost > previous_month_weekly_cost`).
+             - O aumento absoluto (`cost_variation`) foi superior a $50.
+             - O custo total da semana foi superior a $50.
+             - O aumento percentual foi superior a 10%.
+
+      **Audiência:**
+      Engenheiros de FinOps e líderes de Círculos, que podem usar esta tabela para investigar proativamente picos de custos inesperados.
+
+      **Processo:**
+      Diariamente, a tabela é reconstruída, comparando a última semana fechada com a semana correspondente do mês anterior.
+
+      **Recorrência:**
+      Diária.
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: month
+        description: "Coluna que representa o mês da semana em que a anomalia de custo foi detectada. Proveniente de `DATE_TRUNC('month', start_date)` sobre a fonte `all_product_costs_by_day`."
+      - name: week
+        description: "Coluna que representa o número da semana dentro do mês (1-4) em que a anomalia ocorreu. A semana é calculada com base em intervalos fixos de dias do mês (1-7, 8-14, 15-21, 22+)."
+      - name: circle_id
+        description: "ID do círculo associado ao produto que apresentou um custo anômalo. A agregação é feita a este nível. Extraído diretamente de `all_product_costs_by_day`."
+      - name: product_name
+        description: "Nome do produto ou serviço que apresentou o custo anômalo, como 'aws_eks', 'aws_rds', etc. A agregação é feita a este nível. Extraído diretamente de `all_product_costs_by_day`."
+      - name: weekly_cost
+        description: "Custo total do produto na semana em que a anomalia foi detectada. Calculado como `SUM(total_cost)` agrupado por semana, círculo e produto."
+      - name: previous_month_weekly_cost
+        description: "Custo do mesmo produto e círculo na semana correspondente do mês anterior. Utilizado como linha de base para a detecção da anomalia. Calculado com a função `LAG(weekly_cost, 1)`."
+      - name: cost_variation
+        description: "Variação absoluta do custo entre a semana da anomalia e a mesma semana do mês anterior. Calculado como `weekly_cost - previous_month_weekly_cost`."

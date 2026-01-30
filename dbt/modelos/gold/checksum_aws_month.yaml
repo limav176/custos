@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: checksum_aws_month
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Servir como a tabela de reconciliação financeira final para todo o pipeline de custos da AWS, consolidando os totais de custo mensais de todas as camadas (Bronze, Silver e Gold) em um único local para permitir uma auditoria completa da integridade dos dados.
+      **Escopo:** Inclui a soma de custos de todas as principais tabelas de agregação das camadas Silver e Gold, além das tabelas de fatura (`aws_invoice`) e de custos por círculo (`circle_month`), para fornecer uma visão 360 graus dos custos da AWS.
+      **Audiência:** Exclusivamente Engenheiros de Dados. Esta é a ferramenta definitiva para monitorar a saúde e a precisão de todo o pipeline de custos da AWS.
+      **Processo:** O modelo unifica dados de múltiplas fontes. Ele parte dos dados de `silver_checksum_aws` e os une (`UNION ALL`) com os custos agregados mensalmente das tabelas gold (`aws_costs_month_*`), da tabela de fatura (`aws_invoice`) e da agregação financeira de alto nível (`circle_month`). Cada fonte é rotulada na coluna `table_name` para permitir a comparação dos totais entre as camadas.
+      **Recorrência de atualização:** Diária.
+
+    tags: [gold, will, custos_cloud, checksum, reconciliation]
+
+    columns:
+      - name: start_date
+        description: "O primeiro dia do mês de referência para o qual a soma de controle (checksum) foi calculada."
+      - name: table_name
+        description: "Identifica a tabela ou camada de origem do cálculo de custo. É a coluna chave para a análise de reconciliação."
+      - name: circle_id
+        description: "O ID do círculo (time) ao qual o custo foi atribuído na respectiva camada."
+      - name: aws_product_name
+        description: "O nome do produto da AWS, usado como uma das chaves de agrupamento para a reconciliação."
+      - name: cost
+        description: "O custo total mensal agregado para a respectiva `table_name`. Este valor deve ser consistente entre as diferentes camadas para a mesma chave de negócio."

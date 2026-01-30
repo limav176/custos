@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: aws_eks_costs_month_cluster
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Calcular e apresentar os custos mensais de EKS em nível de cluster, fornecendo uma visão financeira completa que separa o custo de uso bruto do valor dos descontos aplicados, para permitir a análise do custo líquido real dos clusters.
+      **Escopo:** Inclui todos os custos de uso associados a clusters EKS, identificados através de `tag_product` ou `tag_name`, e todos os descontos (ex. Savings Plans, Instâncias Reservadas) aplicados a esses clusters. Os dados são agregados mensalmente.
+      **Audiência:** Engenheiros de FinOps, gestores de plataforma e líderes técnicos que precisam entender e gerenciar o custo líquido dos clusters EKS.
+      **Processo:** Os custos de uso são derivados de `gold.aws_costs_day_usage` e mapeados para nomes de cluster padronizados usando mapeamentos estáticos baseados em `tag_product` e `tag_name`. Os descontos são calculados a partir de `gold.aws_eks_costs_day_usage`, filtrando por valores de custo negativos. Os dois conjuntos de dados (uso e desconto) são unidos para fornecer a visão final.
+      **Recorrência de atualização:** Diária.
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: start_date
+        description: "Primeiro dia do mês de referência do custo. Calculado como `DATE_TRUNC('month', start_date)` sobre a data de origem."
+      - name: aws_product_name
+        description: "Nome do produto AWS ao qual o custo se refere. Para a linha de desconto, este valor é fixado como 'Amazon Elastic Compute Cloud', pois os descontos de EKS são aplicados a nível de EC2."
+      - name: cluster_name
+        description: "Nome padronizado do cluster EKS. É derivado de um mapeamento estático que traduz as tags `tag_product` e `tag_name` dos recursos de origem para um nome de cluster consistente."
+      - name: cost_type
+        description: "Tipo do custo. Preenchido como 'Usage' para custos brutos de utilização e 'Discount' para custos negativos que representam créditos e descontos aplicados."
+      - name: cost
+        description: "Valor monetário mensal. Representa a soma dos custos de uso (valor positivo) ou a soma dos descontos (valor negativo) para o mês de referência."

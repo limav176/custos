@@ -1,0 +1,62 @@
+version: 2
+
+models:
+  - name: aws_rds_daily_reservations_analysis
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:**
+      Fornecer uma análise diária da eficiência da estratégia de Reservas de Instâncias (RI) para o Amazon RDS. O objetivo é destacar onde há excesso de reservas (custo desperdiçado) ou falta de reservas (custo de oportunidade perdido), permitindo uma otimização contínua dos custos.
+
+      **Escopo e Lógica:**
+      A tabela enriquece os dados de contagem diária de instâncias e reservas com métricas de análise de cobertura.
+      - **Fontes de Dados:** Derivada exclusivamente de `silver.aws_rds_daily_reservations_instances`, que contém a contagem diária de instâncias e reservas por tipo.
+      - **Lógica Principal:** A tabela calcula duas colunas analíticas chave:
+        1. **`reservation_utilization_rate`**: Uma métrica percentual (`reservations / instances`) que mostra qual a proporção de instâncias ativas está coberta por reservas.
+        2. **`reservation_status`**: Um campo de status categórico, derivado de uma lógica `CASE WHEN`, que classifica a situação de cobertura de cada tipo de instância como 'Optimal' (cobertura ideal), 'Under-reserved' (falta de reservas) ou 'Over-reserved' (excesso de reservas).
+
+      **Audiência:**
+      Engenheiros de FinOps e gestores de infraestrutura responsáveis pela aquisição e gerenciamento do portfólio de Reservas de Instâncias da AWS.
+
+      **Processo:**
+      Diariamente, uma query PrestoSQL lê os dados pré-agregados da tabela de origem e aplica a lógica de cálculo de taxa de utilização e status para gerar os insights analíticos.
+
+      **Recorrência:**
+      Diária.
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: start_date
+        description: "Data de referência da análise diária."
+      - name: aws_product_name
+        description: "Nome do produto AWS, que será 'Amazon Relational Database Service'. Proveniente da fonte."
+      - name: region
+        description: "Região da AWS onde a instância e a reserva estão localizadas. Proveniente da fonte."
+      - name: engine
+        description: "Motor do banco de dados (ex. 'postgresql'). Proveniente da fonte."
+      - name: multi_az
+        description: "Indicador booleano se a família de instâncias analisada é Multi-AZ. Proveniente da fonte."
+      - name: instance_commited
+        description: "Tipo e tamanho da instância (ex. 'db.r6g.large'). Proveniente da fonte."
+      - name: circle_id
+        description: "ID do círculo associado à instância ou reserva. Proveniente da fonte."
+      - name: instances
+        description: "Quantidade total de instâncias de um mesmo tipo ativas no dia. Proveniente da fonte."
+      - name: reservations
+        description: "Quantidade total de reservas de um mesmo tipo disponíveis no dia. Proveniente da fonte."
+      - name: without_reservations
+        description: "Resultado de `instances - reservations`. Um valor positivo indica instâncias sem cobertura de reserva. Proveniente da fonte."
+      - name: reservation_utilization_rate
+        description: "Taxa percentual que mede a eficiência da cobertura de reservas para um determinado tipo de instância. É calculada como `(reservations * 100.0 / instances)`. Um valor de 100% indica utilização ótima, enquanto valores abaixo disso apontam para subutilização das instâncias em relação às reservas disponíveis."
+      - name: reservation_status
+        description: "Status categórico que classifica a adequação do portfólio de reservas. Derivado de uma lógica `CASE`, classifica a situação como: 'Optimal' (instâncias e reservas perfeitamente alinhadas), 'Under-reserved' (instâncias ativas sem cobertura de reserva, indicando oportunidade de compra), ou 'Over-reserved' (reservas ociosas sem instâncias correspondentes, indicando desperdício)." 

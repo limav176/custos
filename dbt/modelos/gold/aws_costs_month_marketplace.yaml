@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: aws_costs_month_marketplace
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: >
+      **Propósito:** Consolidar e agregar todos os custos provenientes do AWS Marketplace em uma visão mensal para fornecer uma visão de alto nível dos gastos com produtos e serviços de terceiros.
+      **Escopo:** Inclui exclusivamente custos faturados via AWS Marketplace. Custos diretos de uso de serviços AWS são excluídos. A agregação não atribui custos a um Círculo (circle_id), tratando-os como despesas centrais.
+      **Audiência:** Engenheiros de FinOps e gestores financeiros que precisam rastrear os gastos com softwares e serviços de terceiros.
+      **Processo:** Os dados são derivados da tabela `silver.aws_costs_marketplace`. A query agrupa os registros por mês, origem de faturamento e nome do produto, e calcula o custo total somando `unblended_cost` e `reservation_cost`.
+      **Recorrência de atualização:** Diária.
+
+    tags: [gold, will, custos_cloud, marketplace]
+
+    columns:
+      - name: start_date
+        description: "Primeiro dia do mês de referência do custo, calculado como `DATE_TRUNC('month', start_date)`."
+      - name: billing_origin
+        description: "Origem da informação de faturamento, herdada da camada silver (ex. 'AWS Marketplace')."
+      - name: aws_product_name
+        description: "Nome do produto de terceiro adquirido via AWS Marketplace. Herdado da camada silver."
+      - name: cost
+        description: "Custo total mensal do produto, calculado como `SUM(unblended_cost + reservation_cost)` e formatado para duas casas decimais."

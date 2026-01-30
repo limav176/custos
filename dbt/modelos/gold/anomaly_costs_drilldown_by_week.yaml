@@ -1,0 +1,61 @@
+version: 2
+
+models:
+  - name: anomaly_costs_drilldown_by_week
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:**
+      Identificar aumentos de custos semanais significativos no nível do recurso individual. Esta tabela fornece um drill-down detalhado das anomalias, permitindo que as equipes de engenharia investiguem a causa raiz de um aumento inesperado de custos.
+
+      **Escopo e Lógica:**
+      A tabela analisa os custos dos últimos três meses para detectar anomalias, comparando o custo de uma "semana" (períodos fixos de 7 dias dentro de um mês) com a mesma semana do mês anterior.
+      - **Fontes de Dados:** Derivada exclusivamente de `gold.all_product_costs_by_day`.
+      - **Agregação:** Os custos são primeiro agregados por semana, provedor, círculo, produto e recurso (`resource_id`, usando `tag_name` como fallback).
+      - **Lógica de Comparação:** Utiliza a função `LAG()` para buscar o custo da mesma semana no mês anterior.
+      - **Critérios de Anomalia:** Uma anomalia no nível do recurso é registrada se **todas** as seguintes condições forem verdadeiras para a semana mais recente em comparação com a mesma semana do mês anterior:
+        1. O custo aumentou (`weekly_cost` > `previous_month_weekly_cost`).
+        2. O custo semanal atual do recurso é superior a $50.
+        3. O aumento absoluto do custo (`cost_variation`) é superior a $50.
+        4. O aumento percentual do custo é superior a 10%.
+      - **Exclusões:** Custos do provedor 'datadog', produtos 'shared' e recursos de 'Difference - Reservations' são ignorados na análise. A semana atual do mês corrente também é excluída para evitar a análise de dados parciais.
+
+      **Audiência:**
+      Engenheiros de FinOps, Tech Leads e desenvolvedores que precisam identificar e reagir rapidamente a picos de custo inesperados em recursos específicos.
+
+      **Processo:**
+      Diariamente, uma query PrestoSQL agrega os custos diários em blocos semanais, compara cada bloco com o do mês anterior e filtra os resultados para incluir apenas aqueles que atendem a todos os critérios de anomalia definidos.
+
+      **Recorrência:**
+      Diária.
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: month
+        description: "Mês da semana em que a anomalia de custo foi detectada."
+      - name: week
+        description: "Número da semana dentro do mês (1-4) em que a anomalia ocorreu. As semanas são definidas como blocos fixos: dias 1-7, 8-14, 15-21, 22+."
+      - name: provider
+        description: "Provedor de serviço (ex. 'aws', 'kubernetes') do recurso com custo anômalo."
+      - name: circle_id
+        description: "ID do círculo associado ao recurso com custo anômalo."
+      - name: product_name
+        description: "Nome do produto ou serviço ao qual o recurso pertence."
+      - name: resource_id
+        description: "ID ou nome do recurso específico que apresentou o custo anômalo. Corresponde à `tag_name` quando disponível, caso contrário, ao ID do recurso."
+      - name: weekly_cost
+        description: "Custo total do recurso na semana em que a anomalia foi detectada."
+      - name: previous_month_weekly_cost
+        description: "Custo do mesmo recurso na semana correspondente do mês anterior, utilizado para comparação."
+      - name: cost_variation
+        description: "Variação absoluta do custo, calculada como `weekly_cost` - `previous_month_weekly_cost`."

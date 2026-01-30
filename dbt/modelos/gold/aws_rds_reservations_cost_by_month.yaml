@@ -1,0 +1,76 @@
+version: 2
+
+models:
+  - name: aws_rds_reservations_cost_by_month
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:**
+      Promover os dados de custos e utilização de reservas de RDS da camada Silver para a camada Gold, tornando-os oficialmente disponíveis para consumo por ferramentas de BI, dashboards e análises de FinOps.
+
+      **Escopo e Lógica:**
+      Esta tabela é um modelo de "passagem" (pass-through), o que significa que ela não aplica nenhuma transformação nos dados.
+      - **Fonte de Dados:**
+        - `silver.silver_aws_rds_reservations_costs`: A tabela na camada Silver que já contém os dados pré-processados e enriquecidos.
+      - **Lógica Principal:**
+        - A query executa um simples `SELECT *` da tabela de origem. O objetivo é puramente de governança: sinalizar que esta tabela na camada Silver atingiu um estado de qualidade e confiança que a torna apta para consumo final, disponibilizando-a no schema Gold.
+
+      **Audiência:**
+      Engenheiros de FinOps, analistas de custos e gestores de plataforma que precisam analisar a eficiência do uso de instâncias reservadas de RDS, incluindo custos, economias e oportunidades de otimização.
+
+      **Processo:**
+      A tabela é uma cópia 1-para-1 da sua fonte na camada Silver e é atualizada sempre que a fonte é atualizada.
+
+      **Recorrência:**
+      Diária (ou conforme a frequência de atualização da fonte).
+
+    tags: [gold, will, custos_cloud, rds]
+
+    columns:
+      - name: month
+        description: "Mês de referência para a análise agregada dos custos de reserva. Proveniente da fonte."
+      - name: region
+        description: "Região da AWS onde as instâncias e reservas estão localizadas. Proveniente da fonte."
+      - name: circle_id
+        description: "ID do Círculo (time) associado ao custo da instância. Proveniente da fonte."
+      - name: engine
+        description: "Motor de banco de dados da instância RDS (ex. 'postgresql'). Proveniente da fonte."
+      - name: instance_commited
+        description: "Tipo de instância para o qual o compromisso de reserva foi feito (ex. 'db.r6g.large'). Proveniente da fonte."
+      - name: eligible_commit
+        description: "Indicador booleano se a instância é elegível para um compromisso de reserva. Proveniente da fonte."
+      - name: instances
+        description: "Número total de instâncias daquele tipo em uso. Proveniente da fonte."
+      - name: instances_inactives
+        description: "Número de instâncias daquele tipo que foram consideradas inativas no período. Proveniente da fonte."
+      - name: instances_actives
+        description: "Número de instâncias daquele tipo que foram consideradas ativas no período. Proveniente da fonte."
+      - name: reservations
+        description: "Número de reservas ativas para aquele tipo de instância. Proveniente da fonte."
+      - name: instance_hours
+        description: "Total de horas de uso de todas as instâncias daquele tipo no mês. Proveniente da fonte."
+      - name: reservation_hours
+        description: "Total de horas de uso que foram cobertas por instâncias reservadas. Proveniente da fonte."
+      - name: ondemand_hours
+        description: "Total de horas de uso faturadas como sob demanda (não cobertas por reserva). Proveniente da fonte."
+      - name: reservation_cost
+        description: "Custo mensal total pago pelas instâncias reservadas. Proveniente da fonte."
+      - name: ondemand_cost
+        description: "Custo mensal total pago pelas horas de uso sob demanda. Proveniente da fonte."
+      - name: savings
+        description: "Economia real obtida no mês, comparando o custo pago com o que seria pago no modelo On-Demand. Proveniente da fonte."
+      - name: opportunity_savings
+        description: "Economia potencial que poderia ser realizada se as reservas fossem otimizadas. Proveniente da fonte."
+      - name: recommendation
+        description: "Recomendação de ação para otimização de custos (ex. 'Comprar RI'). Proveniente da fonte."
+      - name: total_cost
+        description: "Custo total efetivo do mês, calculado como `reservation_cost + ondemand_cost`. Proveniente da fonte."

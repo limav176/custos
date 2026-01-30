@@ -1,0 +1,76 @@
+version: 2
+
+models:
+  - name: aws_rds_unit_costs
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:**
+      Calcular os "custos unitários" mensais para instâncias RDS. Esta tabela cria uma métrica normalizada de custo (dividido pela soma de vCPU e memória) para permitir comparações de eficiência de custo entre diferentes tipos de instâncias. Ela também analisa a eficiência do uso das reservas.
+
+      **Escopo e Lógica:**
+      A tabela utiliza um processo complexo de múltiplas etapas para agregar e calcular os custos unitários.
+      - **Fontes de Dados:**
+        - `silver.aws_rds_costs_by_sdk`: Para obter os custos On-Demand e as especificações (vCPU, Memória) das instâncias.
+        - `silver.aws_rds_reservations`: Para obter os detalhes e custos das reservas de instâncias.
+      - **Lógica Principal:**
+        1. **Expansão de Reservas:** A lógica chave é "expandir" os contratos de reserva. Usando `CROSS JOIN UNNEST(SEQUENCE(...))`, a query gera uma linha para cada mês em que uma reserva esteve ativa, distribuindo o custo total da reserva proporcionalmente por esses meses.
+        2. **Agregação de Custos:** Os custos On-Demand e os custos de reserva (já expandidos) são agregados mensalmente.
+        3. **Contagem de Instâncias:** O número de instâncias distintas usadas por mês é contado.
+        4. **Merge e Enriquecimento:** Os custos On-Demand, custos de reserva e a contagem de instâncias são unidos (`FULL OUTER JOIN`).
+        5. **Cálculo Final:**
+          - **`unit_cost`**: O custo total (de reserva, se disponível, senão On-Demand) é dividido pela soma de `vcpu` e `memory`.
+          - **`relative_savings_per_unit`**: Calcula a economia por "unidade" que a reserva proporciona.
+          - **`reserva_eficiencia`**: Classifica se as reservas estão sendo subutilizadas, superutilizadas ou usadas de forma equilibrada.
+
+      **Audiência:**
+      Engenheiros de FinOps e analistas de custos que precisam realizar análises avançadas sobre a eficiência de custos da infraestrutura de RDS.
+
+      **Processo:**
+      Diariamente, a query executa o processo de expansão de reservas, agregação de custos e cálculo de métricas unitárias para popular a tabela.
+
+      **Recorrência:**
+      Diária.
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: month
+        description: "Mês de referência para a análise de custo, usado como chave para todas as agregações e junções."
+      - name: region
+        description: "Região da AWS onde as instâncias e reservas estão localizadas. Usado como chave de junção."
+      - name: circle_id
+        description: "ID do círculo associado ao custo. Usado como chave de junção."
+      - name: instance_commited
+        description: "Tipo de instância (ex. 'db.r6g.large') que é a base para a análise de custo e reserva. Usado como chave de junção."
+      - name: reservation_start_time
+        description: "Data e hora de início do contrato da reserva. Proveniente da fonte `aws_rds_reservations`."
+      - name: reservation_end_time
+        description: "Data e hora de término do contrato da reserva. Proveniente da fonte `aws_rds_reservations`."
+      - name: reservations
+        description: "Número de instâncias incluídas no contrato de reserva. Proveniente da fonte `aws_rds_reservations`."
+      - name: used_instances
+        description: "Número de instâncias distintas de um mesmo tipo que foram efetivamente utilizadas no mês."
+      - name: total_ondemand_cost
+        description: "Custo total que teria sido pago no modelo On-Demand para as instâncias usadas no mês. Calculado de `aws_rds_costs_by_sdk`."
+      - name: total_reservation_cost
+        description: "Custo mensal amortizado das reservas aplicáveis, calculado a partir da expansão mensal do custo total da reserva."
+      - name: vcpu
+        description: "Número de vCPUs da instância, usado como parte do denominador para o cálculo do custo unitário."
+      - name: memory
+        description: "Quantidade de memória (GiB) da instância, usada como parte do denominador para o cálculo do custo unitário."
+      - name: unit_cost
+        description: "Custo normalizado, calculado como `(custo_real / (vcpu + memory))`, onde `custo_real` prioriza o custo de reserva sobre o on-demand."
+      - name: relative_savings_per_unit
+        description: "Economia normalizada por unidade de computação. Calculada como `((ondemand_cost - reservation_cost) / (vcpu + memory))`."
+      - name: reserva_eficiencia
+        description: "Status da eficiência da reserva. Compara o número de instâncias reservadas com as instâncias usadas, classificando como 'uso_excedente', 'reserva_subutilizada' ou 'uso_equilibrado'."

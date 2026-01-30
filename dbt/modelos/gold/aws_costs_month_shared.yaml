@@ -1,0 +1,41 @@
+version: 2
+
+models:
+  - name: aws_costs_month_shared
+    description: >
+      **Propósito:** Alocar os custos compartilhados (`shared`) da AWS, que por natureza não pertencem a um único dono, entre os diversos Círculos (times) da empresa de forma proporcional ao uso que cada Círculo faz dos serviços da AWS, visando dar visibilidade e atribuir responsabilidade sobre os custos indiretos.
+      **Escopo:** A alocação considera os custos mensais totais classificados como compartilhados na tabela `silver.aws_costs_shared` e os distribui com base nos custos de uso mensais por Círculo, agregados na tabela `gold.aws_costs_month_usage`.
+      **Audiência:** Engenheiros de FinOps, gestores financeiros e líderes de Círculos que precisam de uma contabilidade de custos mais justa e precisa, incluindo despesas indiretas.
+      **Processo:** O custo compartilhado total é agregado mensalmente a partir de `silver.aws_costs_shared`. Em paralelo, uma taxa de alocação (`rate`) é calculada para cada Círculo com base na sua proporção de uso em `gold.aws_costs_month_usage`. O custo final é o produto do custo compartilhado total pela taxa do Círculo.
+      **Recorrência de atualização:** Diária.
+
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    tags: 
+      - "camada:gold"
+      - "dominio:custos_cloud"
+      - "provedor:aws"
+      - "tipo_de_custo:shared"
+      - "logica:alocacao_proporcional"
+      - "granularidade:mensal"
+
+    columns:
+      - name: start_date
+        description: "Primeiro dia do mês de referência do custo, usado como chave de junção entre o custo total compartilhado e as taxas de rateio."
+      - name: billing_origin
+        description: "Origem da informação de faturamento (ex. 'cost_and_usage_report'). Proveniente da agregação de custos compartilhados."
+      - name: aws_product_name
+        description: "Nome do produto/serviço AWS ao qual o custo compartilhado original estava associado. Proveniente da agregação de custos compartilhados."
+      - name: circle_id
+        description: "ID do Círculo (time) que está recebendo a fração do custo compartilhado, com base em seu percentual de uso."
+      - name: cost
+        description: "Valor monetário do custo compartilhado alocado ao círculo. Calculado como `custo_total_compartilhado * taxa_de_uso_do_circulo`."

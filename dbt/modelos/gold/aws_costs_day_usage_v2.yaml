@@ -1,0 +1,222 @@
+version: 2
+
+models:
+  - name: aws_costs_day_usage_v2
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Consolidar e agregar diariamente todos os custos de uso da AWS que foram atribuídos a um Círculo (`circle_id`), combinando:
+      - custos gerais de serviços AWS da tabela `silver.aws_costs_usage`, e
+      - custos já classificados como “plataforma de dados” na tabela `gold.data_platform_costs_day_usage`
+      Dessa forma, evita-se dupla contagem ao priorizar a visão de custos já enriquecidos na camada de
+      plataforma de dados e complementar com os demais custos AWS ainda não cobertos.
+
+      **Escopo:**  A tabela une duas fontes de custo distintas:
+      - `data_platform_costs_day_usage`: custos da plataforma de dados (dbt, Looker, ETL custom, etc.)
+        que foram mapeados para recursos AWS (`id_resource` começando com `aws/`) e já possuem
+        classificação por círculo, ambiente e tipo de produto.
+      - `aws_costs_usage`: custos gerais da AWS ainda não representados na fonte anterior.
+      A granularidade dos dados é diária (`start_date`), por combinação de recurso/conta/região e
+      demais dimensões de custo.
+
+      **Audiência:** Engenheiros de FinOps, responsáveis pela plataforma de dados e líderes de Círculos,
+      para análise detalhada dos custos de uso da AWS atribuídos aos seus times, com prioridade para a
+      visão de custos que já passaram pela lógica de classificação da plataforma de dados.
+
+      **Processo:** - A CTE `data_platform` lê `gold.data_platform_costs_day_usage`, filtra apenas recursos com
+        `id_resource LIKE 'aws/%'`, agrega o custo diário (`SUM(cost)`) e projeta as colunas no formato
+        padronizado desta tabela, utilizando:
+          - `CAST(start_date AS DATE)` como `start_date`;
+          - `id_specific_resource` como identificador lógico do recurso (posteriormente exposto como
+            `resource_id` e também como `tag_name`);
+          - valores vazios (`''`) para campos de descrição, tags de repositório/produto/management,
+            `usage_type` e `pricing_term`;
+          - `TRUE` para `tag_policy_compliant` e `tag_policy_compliant_actual`;
+          - `0.0` para `reservation_cost`.
+      - A CTE `aws` lê `silver.aws_costs_usage`, faz um `LEFT JOIN` com `data_platform` usando o
+        identificador composto de recurso (`resource_id`) e data (`start_date`), e aplica `WHERE d.resource_id IS NULL`.
+        Essa combinação implementa um **left anti join**, excluindo da visão “bruta” da AWS todos os
+        registros que já estão cobertos pela visão de plataforma de dados.
+        Em seguida, agrega os custos diários (`SUM(reservation_cost)` e `SUM(unblended_cost)`).
+      - O `SELECT` final faz um `UNION ALL` entre:
+          - os custos gerais da AWS ainda não classificados pela plataforma (`aws`), e
+          - os custos da plataforma de dados (`data_platform`), projetando `id_specific_resource`
+            como `resource_id` na saída final.
+
+      **Recorrência de atualização:** Diária.
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: start_date
+        description: >
+          Data de início do período de uso do recurso, agregada em nível diário.
+          Para custos provenientes de `data_platform_costs_day_usage`, é calculada
+          como `CAST(start_date AS DATE)`. Para custos provenientes de
+          `aws_costs_usage`, é calculada como `DATE_TRUNC('day', CAST(start_date AS TIMESTAMP))`.
+
+      - name: resource_id
+        description: >
+          Identificador lógico do recurso nesta tabela.
+          - Para linhas originadas de `data_platform_costs_day_usage`, corresponde a
+            `id_specific_resource`, que encapsula o tipo de uso/plataforma (ex. dbt,
+            Looker, ETL custom, sandbox) combinado com o recurso ou usuário, permitindo
+            análises por tipo de workload da plataforma de dados.
+          - Para linhas originadas de `aws_costs_usage`, corresponde ao `resource_id`
+            bruto de faturamento, representando diretamente o recurso AWS que gerou o custo.
+
+      - name: description
+        description: >
+          Descrição do item de linha de custo fornecida pela AWS.
+          - Para linhas de `aws_costs_usage`, reflete o campo `description` da fonte.
+          - Para linhas de `data_platform_costs_day_usage`, é preenchida com a concatenação de
+            `nr_usage_metric` e `nm_usage_metric_name`
+
+      - name: billing_origin
+        description: >
+          Origem dos dados de faturamento (ex. 'custos_aws_billing').
+          É populado tanto para linhas provenientes de `aws_costs_usage` quanto de
+          `data_platform_costs_day_usage`, preservando a rastreabilidade da fonte de billing.
+
+      - name: aws_product_name
+        description: >
+          Nome do produto da AWS associado ao custo (ex. 'AmazonEC2', 'Amazon Athena').
+          - Para linhas de `aws_costs_usage`, reflete diretamente o campo `aws_product_name`.
+          - Para linhas agregadas da plataforma de dados, é derivado do campo `product_name`
+            em `data_platform_costs_day_usage`, mantendo a consistência com a visão de produto
+            já consolidada na camada de plataforma.
+
+      - name: circle_id
+        description: >
+          ID do Círculo ao qual o custo foi atribuído.
+          Mantido tanto para custos vindos de `aws_costs_usage` quanto da plataforma de dados,
+          permitindo análise de custos por círculo de forma unificada.
+
+      - name: providedby_id
+        description: >
+          ID do provedor do círculo (ex. círculo provedor de uma plataforma compartilhada).
+          Proveniente das duas fontes de dados, permitindo diferenciar custos consumidos por
+          um círculo daqueles providos por plataformas compartilhadas.
+
+      - name: circle_type
+        description: >
+          Tipo do Círculo (ex. 'stream_aligned', 'platform').
+          - Para linhas de `aws_costs_usage`, reflete a classificação herdada da própria
+            tabela de custos AWS.
+          - Para linhas de `data_platform_costs_day_usage`, herda a classificação de círculo
+            já aplicadas na visão de plataforma de dados.
+
+      - name: tag_repository
+        description: >
+          Valor extraído da tag 'repository' do recurso, quando disponível na fonte AWS.
+          - Para linhas de `aws_costs_usage`, é herdado do campo correspondente de tags.
+          - Para linhas de `data_platform_costs_day_usage`, é preenchido com valor vazio (''),
+            pois a classificação é feita em nível lógico de plataforma (via `id_specific_resource`).
+
+      - name: tag_product
+        description: >
+          Valor extraído da tag 'product' do recurso, utilizado para identificar o produto
+          de negócio associado ao custo.
+          - Nas linhas de `aws_costs_usage`, é herdado das tags de recurso.
+          - Nas linhas de `data_platform_costs_day_usage`, é preenchido com valor vazio (''),
+            já que o produto/plataforma é representado por `id_specific_resource` e
+            `aws_product_name`.
+
+      - name: tag_management
+        description: >
+          Valor extraído da tag 'management' do recurso, que indica como o recurso
+          é gerenciado (ex. centralizado, time específico).
+          - Para `aws_costs_usage`, reflete o valor efetivamente tagueado na AWS.
+          - Para `data_platform_costs_day_usage`, é preenchido com valor vazio ('').
+
+  - name: tag_name
+    description: >
+      Tag de nome associada ao recurso.
+      - Para linhas de `aws_costs_usage`, corresponde à tag 'name' do recurso.
+      - Para linhas de `data_platform_costs_day_usage`, recebe o valor de
+        `id_specific_resource`, reforçando a identificação lógica do tipo de uso
+        (ex. `dbt/<tabela>`, `sandbox/<usuario>`, `looker/<usuario>`).
+
+  - name: tag_policy_compliant
+    description: >
+      Indicador booleano que sinaliza se o recurso atende à política de tagueamento
+      corporativa.
+      - Para linhas de `aws_costs_usage`, herda o valor calculado na tabela de entrada.
+      - Para linhas de `data_platform_costs_day_usage`, é definido como `TRUE` por padrão,
+        uma vez que esses custos já passaram por uma etapa de classificação e governança.
+
+  - name: tag_policy_compliant_actual
+    description: >
+      Indicador booleano que reflete a conformidade de tagueamento no momento do uso
+      (estado “real” das tags na data do custo).
+      - Para `aws_costs_usage`, representa a conformidade calculada a partir das tags
+        presentes naquele dia.
+      - Para `data_platform_costs_day_usage`, é definido como `TRUE`, assumindo que o
+        processo de classificação da plataforma só considera recursos aderentes às
+        políticas mínimas de tagueamento.
+
+  - name: environment
+    description: >
+      Ambiente associado ao recurso (ex. 'production', 'staging', 'development'),
+      conforme classificação disponível nas fontes.
+      É herdado tanto de `aws_costs_usage` quanto de `data_platform_costs_day_usage`,
+      permitindo análise de custos por ambiente.
+
+  - name: usage_type
+    description: >
+      Descrição do tipo de uso específico do serviço da AWS (ex. tipo de instância,
+      modo de cobrança de I/O).
+      - Para `aws_costs_usage`, reflete `usage_type` da fatura AWS.
+      - Para `data_platform_costs_day_usage`, é preenchido com valor vazio (''),
+        já que o foco é a classificação por tipo de workload da plataforma.
+
+  - name: pricing_term
+    description: >
+      Termo de precificação do uso (ex. 'OnDemand', 'Reserved', 'SavingsPlan').
+      - Nas linhas de `aws_costs_usage`, reflete o termo de preço do item de custo.
+      - Nas linhas de `data_platform_costs_day_usage`, é preenchido com valor vazio ('').
+
+  - name: account_id
+    description: >
+      ID da conta AWS onde o custo foi gerado.
+      Preservado em ambas as fontes, permitindo consolidação de custos multi-conta
+      e análises por estrutura organizacional (ex. OU/Account).
+
+  - name: account_name
+    description: >
+      Nome legível da conta AWS associado ao `account_id`.
+      Proveniente tanto de `aws_costs_usage` quanto de `data_platform_costs_day_usage`,
+      facilitando a leitura em análises de FinOps e relatórios gerenciais.
+
+  - name: region
+    description: >
+      Região AWS onde o recurso foi provisionado (ex. 'sa-east-1').
+      Mantida nas duas fontes e usada também na composição de `resource_id` na lógica
+      de left anti join, garantindo que custos sejam conciliados por conta, região
+      e recurso.
+
+  - name: reservation_cost
+    description: >
+      Custo diário agregado associado a instâncias reservadas ou compromissos
+      semelhantes, quando disponível.
+      - Para linhas de `aws_costs_usage`, é calculado como `SUM(reservation_cost)` na
+        granularidade diária.
+      - Para linhas de `data_platform_costs_day_usage`, é definido como `0.0`, já que
+        a visão de plataforma foca no custo efetivo de uso (`cost`).
+
+  - name: unblended_cost
+    description: >
+      Custo diário agregado não combinado (“unblended”), que representa o custo
+      efetivo de uso antes de rateios de descontos em nível de organização.
+      - Para `aws_costs_usage`, é calculado como `SUM(unblended_cost)`.
+      - Para `data_platform_costs_day_usage`, é calculado como `SUM(cost)`, mantendo a
+        coerência com a métrica de custo utilizada na visão da plataforma de dados.

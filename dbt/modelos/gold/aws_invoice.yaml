@@ -1,0 +1,39 @@
+version: 2
+
+models:
+  - name: aws_invoice
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Apresenta uma "fatura" mensal consolidada dos custos da AWS, projetada com uma funcionalidade chave: a comparação direta do custo de um mês (`cost`) com o do mês imediatamente anterior (`previous_cost`) na mesma linha. O objetivo é ser a fonte primária para análises de variação de custos (Month-over-Month), permitindo identificar de forma simples e eficiente o crescimento, a redução ou a churn de custos por produto, círculo e tipo.
+      **Escopo:** Consolida cinco fontes de custo da camada Gold: `aws_costs_month_usage`, `aws_costs_month_untagged`, `aws_costs_month_support`, `aws_costs_month_shared`, e `aws_costs_month_marketplace`. A análise cobre todos os custos registrados nessas fontes. O uso de `FULL OUTER JOIN` garante que custos que surgiram (churn-in) ou desapareceram (churn-out) entre os meses sejam incluídos no resultado.
+      **Audiência:** Analistas de FinOps, Gestores de Círculos e qualquer stakeholder interessado em entender a evolução dos custos da AWS.
+      **Processo:** Os dados são unificados de cinco tabelas de custo mensais (`aws_costs_month_*`) na CTE `month`. Em seguida, a CTE `source` realiza um `self FULL OUTER JOIN` na CTE `month` para alinhar os custos do mês corrente com os do mês anterior com base nas chaves de negócio (`billing_origin`, `aws_product_name`, `circle_id`, `type`). A função `COALESCE` é usada para tratar a ausência de custos em um dos períodos, garantindo a integridade da comparação.
+      **Recorrência de atualização:** Diária.
+
+    tags: [gold, will, custos_cloud, aws, invoice]
+
+    columns:
+      - name: billing_origin
+        description: "Origem da informação de faturamento (ex. AWS, AWS Marketplace). Proveniente da junção das tabelas de custo mensais e coalescida entre o mês atual e o anterior."
+      - name: aws_product_name
+        description: "Nome do produto ou serviço da AWS. Para custos compartilhados, este campo é fixado como 'AWS shared costs'. Proveniente da junção e coalescido entre os meses."
+      - name: circle_id
+        description: "Identificador único do círculo (time) ao qual o custo foi atribuído. O valor '999...' é usado como um fallback para custos não atribuídos. Coalescido entre os meses para garantir a correspondência."
+      - name: type
+        description: "Categoria que classifica a natureza do custo, derivada da tabela de origem. Valores possíveis: 'usage', 'untagged', 'support', 'shared', 'marketplace'. Usado como chave na junção dos meses."
+      - name: month
+        description: "Primeiro dia do mês de referência para o `cost` (o custo do mês corrente na análise). Calculado a partir do `start_date` do mês corrente ou inferido como `previous_month` + 1 mês caso o custo corrente não exista."
+      - name: cost
+        description: "Valor monetário total do custo para o mês de referência (`month`). Retorna `0` se não houve custo no mês atual para a chave de negócio correspondente."
+      - name: previous_month
+        description: "Primeiro dia do mês de referência para o `previous_cost` (o custo do mês anterior na análise). Calculado a partir do `start_date` do mês anterior ou inferido como `month` - 1 mês caso o custo anterior não exista."
+      - name: previous_cost
+        description: "Valor monetário total do custo para o mês anterior (`previous_month`). Retorna `0` se não houve custo no mês anterior para a chave de negócio correspondente."

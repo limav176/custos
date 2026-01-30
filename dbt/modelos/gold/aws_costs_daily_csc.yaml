@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: aws_costs_daily_csc
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:**
+      Criar uma visão diária para o acompanhamento do CSC (Custo de Servir por Cliente). A tabela combina o custo operacional diário real da AWS com dados estáticos (hardcoded) de metas e previsões mensais, permitindo a análise da performance de custo em relação aos objetivos de negócio.
+
+      **Escopo e Lógica:**
+      A tabela une dados de custos reais com uma tabela de metas e projeções definida no próprio código.
+      - **Fontes de Dados:**
+        - `silver.silver_aws_cost_usage_report`: Fornece os custos operacionais diários da AWS.
+        - **Dados Estáticos (`num_clientes` CTE):** Uma tabela de valores (VALUES) definida no SQL contém as metas mensais de CSC (`target_month_csc`) e as projeções/realizações de número de clientes (`forecast_customer_count`, `actual_customer_count`) para 2025.
+      - **Lógica Principal:**
+        1. **Esqueleto de Datas (`year_to_end`):** Cria uma linha para cada dia do período de análise.
+        2. **Cálculo de Custo Diário (`daily_cost`):** Agrega os custos da AWS, excluindo itens como Marketplace e créditos, para obter um custo operacional "limpo".
+        3. **Unificação e Enriquecimento:** A query final une o esqueleto de datas com os custos diários e com os dados de metas mensais. Os dados mensais são mapeados para todos os dias do respectivo mês.
+        4. **Média Móvel (`cost_rolling_avg`):** Calcula a média móvel dos custos dos últimos 30 dias para suavizar as flutuações e facilitar a análise de tendências.
+
+      **Audiência:**
+      Liderança, Analistas de FinOps e gestores de produto que acompanham o indicador de Custo de Servir por Cliente.
+
+      **Processo:**
+      A tabela é reconstruída diariamente, trazendo o custo mais recente e comparando-o com as metas estáticas definidas.
+
+      **Recorrência:**
+      Diária.
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: start_date
+        description: "A data de referência para a linha de dados."
+      - name: cost
+        description: "O custo operacional total da AWS para o dia, após a exclusão de Marketplace e créditos."
+      - name: cost_rolling_avg
+        description: "A média móvel dos custos operacionais dos últimos 30 dias."
+      - name: forecast_customer_count
+        description: "A quantidade de clientes que era prevista para o mês (dado estático)."
+      - name: actual_customer_count
+        description: "A quantidade de clientes que foi realizada no mês (dado estático, nulo para meses futuros)."
+      - name: target_month_csc
+        description: "A meta de Custo de Servir por Cliente para o mês (dado estático)."

@@ -1,0 +1,41 @@
+version: 2
+
+models:
+  - name: aws_costs_month_support
+    description: >
+      **Propósito:** Alocar os custos do plano de Suporte da AWS entre os Círculos (times) da empresa, distribuindo-os de forma proporcional ao uso que cada Círculo faz dos serviços da AWS, já que o suporte é uma despesa geral que beneficia a todos.
+      **Escopo:** A alocação considera os custos mensais totais de suporte da tabela `silver.aws_costs_support` e os distribui com base nos custos de uso mensais por Círculo, agregados na tabela `gold.aws_costs_month_usage`.
+      **Audiência:** Engenheiros de FinOps, gestores financeiros e líderes de Círculos.
+      **Processo:** O custo total de suporte é calculado a partir de `silver.aws_costs_support`. Em seguida, a taxa de uso de cada Círculo é calculada com base em `gold.aws_costs_month_usage`. O custo final alocado é o produto do custo total de suporte pela taxa de uso do Círculo.
+      **Recorrência de atualização:** Diária.
+
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    tags: 
+      - "camada:gold"
+      - "dominio:custos_cloud"
+      - "provedor:aws"
+      - "tipo_de_custo:support"
+      - "logica:alocacao_proporcional"
+      - "granularidade:mensal"
+
+    columns:
+      - name: start_date
+        description: "Primeiro dia do mês de referência do custo, usado como chave de junção entre o custo total de suporte e as taxas de rateio."
+      - name: billing_origin
+        description: "Origem da informação de faturamento (ex. 'cost_and_usage_report'). Proveniente da agregação de custos de suporte."
+      - name: aws_product_name
+        description: "Nome do produto/serviço AWS ao qual o custo de suporte original estava associado (ex. 'AWS Support (Enterprise)')."
+      - name: circle_id
+        description: "ID do Círculo (time) que está recebendo a fração do custo de suporte, com base em seu percentual de uso."
+      - name: cost
+        description: "Valor monetário do custo de suporte alocado ao círculo. Calculado como `custo_total_suporte * taxa_de_uso_do_circulo`."

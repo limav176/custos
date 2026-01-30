@@ -1,0 +1,77 @@
+version: 2
+
+models:
+  - name: aws_eks_costs_day_usage
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+        
+    description: >
+      **Propósito:** Fornecer uma visão diária e detalhada dos custos de uso do Amazon EKS (Elastic Kubernetes Service), com a separação explícita dos custos em componentes de CPU e Memória para análises granulares de consumo de recursos computacionais.
+      **Escopo:** Inclui todos os custos brutos da camada Silver (`aws_eks_costs_usage`). A consulta processa apenas dados de dias completos, excluindo o dia corrente para evitar a inclusão de informações parciais.
+      **Audiência:** Engenheiros de FinOps, gestores de plataforma e desenvolvedores que precisam entender o consumo de recursos e custos (alocados e desperdiçados) em clusters Kubernetes.
+      **Processo:** Os dados são derivados de `silver.aws_eks_costs_usage` e agregados diariamente. A lógica central utiliza expressões `CASE WHEN` para analisar a coluna `usage_type` e pivotar os custos, calculando `cpu_cost` para tipos de uso contendo 'vCPU-Hours' e `memory_cost` para 'GB-Hours'.
+      **Recorrência de atualização:** Diária.
+
+    tags: 
+      - "camada:gold"
+      - "dominio:custos_cloud"
+      - "provedor:aws"
+      - "servico:eks"
+      - "tipo_de_custo:usage"
+      - "logica:agregacao"
+      - "logica:separacao_cpu_memoria"
+      - "granularidade:diaria"
+
+    columns:
+      - name: start_date
+        description: "Data de referência do custo, agregada em nível diário. A consulta processa apenas dias completos, excluindo o dia corrente."
+      - name: namespace
+        description: "Namespace do Kubernetes ao qual o custo está associado. Proveniente da fonte `aws_eks_costs_usage`."
+      - name: cluster_name
+        description: "Nome do cluster EKS onde o custo foi gerado. Proveniente da fonte `aws_eks_costs_usage`."
+      - name: instance_id
+        description: "ID da instância EC2 (nó) que suporta os pods. Proveniente da fonte `aws_eks_costs_usage`."
+      - name: environment
+        description: "Ambiente de execução (ex. 'production'). Proveniente da fonte `aws_eks_costs_usage`."
+      - name: account_id
+        description: "ID da conta AWS dona do cluster. Proveniente da fonte `aws_eks_costs_usage`."
+      - name: account_name
+        description: "Nome da conta AWS dona do cluster. Proveniente da fonte `aws_eks_costs_usage`."
+      - name: region
+        description: "Região da AWS onde o cluster está localizado. Proveniente da fonte `aws_eks_costs_usage`."
+      - name: circle_id
+        description: "ID do Círculo (time) ao qual o custo foi atribuído. Proveniente da fonte `aws_eks_costs_usage`."
+      - name: providedby_id
+        description: "ID do provedor de serviço interno, relacionado à estrutura de Círculos. Proveniente da fonte `aws_eks_costs_usage`."
+      - name: tag_policy_compliant
+        description: "Indicador booleano de conformidade com a política de tagueamento. Proveniente da fonte `aws_eks_costs_usage`."
+      - name: tag_policy_compliant_actual
+        description: "Indicador booleano de conformidade de tagueamento no momento do uso. Proveniente da fonte `aws_eks_costs_usage`."
+      - name: tag_name
+        description: "Tag de nome (`Name`) associada ao recurso. Proveniente da fonte `aws_eks_costs_usage`."
+      - name: tag_repository
+        description: "Tag que indica o repositório de código-fonte associado. Proveniente da fonte `aws_eks_costs_usage`."
+      - name: tag_product
+        description: "Tag que indica o produto de negócio associado. Proveniente da fonte `aws_eks_costs_usage`."
+      - name: tag_management
+        description: "Tag usada para fins de gerenciamento. Proveniente da fonte `aws_eks_costs_usage`."
+      - name: circle_type
+        description: "Tipo do Círculo (ex. 'stream_aligned'). Proveniente da fonte `aws_eks_costs_usage`."
+      - name: usage_type
+        description: "Tipo de uso faturado, usado como chave para o pivoteamento de custos (ex. 'EKS-EC2-vCPU-Hours')."
+      - name: cpu_cost
+        description: "Custo diário agregado de CPU. Calculado como `SUM(split_cost + unused_cost)` onde `usage_type` se refere a vCPU."
+      - name: memory_cost
+        description: "Custo diário agregado de memória. Calculado como `SUM(split_cost + unused_cost)` onde `usage_type` se refere a GB-Hours."
+      - name: split_cost
+        description: "Custo diário total que foi efetivamente alocado a um consumidor (namespace/pod). É a soma de `split_cost` de todos os tipos de uso."
+      - name: unused_cost
+        description: "Custo diário total de recursos provisionados mas não utilizados (desperdício). É a soma de `unused_cost` de todos os tipos de uso."

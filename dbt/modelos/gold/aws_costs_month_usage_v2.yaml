@@ -1,0 +1,56 @@
+version: 2
+
+models:
+  - name: aws_costs_month_usage_v2
+    description: >
+      **Propósito:** Consolidar todos os custos de uso (`usage`) da AWS em uma visão mensal agregada, servindo como a principal fonte para análises de consumo direto de recursos pelos Círculos e como base para o rateio de custos indiretos.
+      **Escopo:** Unifica custos de uso geral da AWS (de `silver.aws_costs_usage`), custos de EKS (de `silver.aws_eks_costs_usage`) e custos de Athena (de `gold.aws_athena_costs_day_usage`). Custos do produto 'Amazon Athena' são explicitamente excluídos da fonte de uso geral para evitar duplicidade.
+      **Audiência:** Engenheiros de FinOps, analistas de custos e líderes de Círculos.
+      **Processo:** Os dados de três fontes (`aws`, `eks`, `athena`) são unificados via `UNION ALL`. Cada fonte calcula o custo de acordo com sua métrica específica (ex. `unblended_cost + reservation_cost`). O resultado final é agrupado por mês e outras dimensões para consolidar o custo de uso total.
+      **Recorrência de atualização:** Diária.
+
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    tags:
+      - "camada:gold"
+      - "dominio:custos_cloud"
+      - "provedor:aws"
+      - "tipo_de_custo:usage"
+      - "logica:agregacao"
+      - "fonte:aws_costs_usage"
+      - "fonte:aws_eks_costs_usage"
+      - "fonte:aws_athena_costs_day_usage"
+      - "granularidade:mensal"
+
+    columns:
+      - name: start_date
+        description: "Primeiro dia do mês de referência do custo, calculado como `DATE_TRUNC('month', start_date)` sobre os dados unificados."
+      - name: environment
+        description: "Ambiente ao qual o custo está associado (ex. 'production'). Proveniente diretamente das fontes de dados."
+      - name: account_id
+        description: "ID da conta AWS que incorreu no custo. Proveniente diretamente das fontes de dados."
+      - name: account_name
+        description: "Nome da conta AWS que incorreu no custo. Proveniente diretamente das fontes de dados."
+      - name: billing_origin
+        description: "Origem da informação de faturamento (ex. 'cost_and_usage_report'). Proveniente diretamente das fontes de dados."
+      - name: region
+        description: "Região da AWS onde o recurso foi provisionado. Proveniente diretamente das fontes de dados."
+      - name: aws_product_name
+        description: "Nome do produto/serviço AWS que gerou o custo. Proveniente de todas as três fontes (`aws`, `eks`, `athena`)."
+      - name: circle_id
+        description: "ID do Círculo (time) ao qual o custo de uso foi atribuído. Proveniente diretamente das fontes de dados."
+      - name: providedby_id
+        description: "ID relacionado à estrutura de Círculos, indicando um provedor de serviço interno. Proveniente diretamente das fontes de dados."
+      - name: circle_type
+        description: "Tipo do Círculo (ex. 'stream-aligned'). Para custos de Athena, é enriquecido via `JOIN` com `holaspirit_circles`."
+      - name: cost
+        description: "Valor monetário total do custo de uso, agregado para o mês. É a soma (`SUM`) dos custos calculados de cada fonte: AWS (`unblended_cost + reservation_cost`), EKS (`split_cost + unused_cost`), e Athena (`total_cost`)."

@@ -1,0 +1,69 @@
+version: 2
+
+models:
+  - name: aws_costs_day_usage
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Consolidar e agregar diariamente todos os custos de uso da AWS que foram atribuídos a um Círculo (`circle_id`), combinando os custos gerais de serviços AWS com os custos específicos do Amazon Athena, que são rateados por uso.
+      **Escopo:** A tabela une duas fontes de custo distintas. Inclui custos gerais da AWS da tabela `silver.aws_costs_usage`, com a exceção explícita dos custos de 'Amazon Athena'. Os custos de Athena são incluídos a partir da tabela `gold.aws_athena_costs_day_usage`. A granularidade dos dados é diária.
+      **Audiência:** Engenheiros de FinOps e líderes de Círculos, para análise detalhada dos custos de uso atribuídos aos seus times.
+      **Processo:** A query executa uma união (`UNION ALL`) de duas fontes de dados. A primeira (CTE `aws`) agrega os custos diários gerais da AWS. A segunda (CTE `athena`) agrega os custos diários de uso do Athena. O tipo de círculo (`circle_type`) para os custos de Athena é enriquecido com um `JOIN` na tabela `holaspirit_circles`.
+      **Recorrência de atualização:** Diária.
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: start_date
+        description: "Data de início do período de uso do recurso, agregada em nível diário. Calculado como `DATE_TRUNC('day', CAST(start_date AS TIMESTAMP))` para ambas as fontes (uso geral e Athena)."
+      - name: resource_id
+        description: "ID único do recurso que gerou o custo. Para a maioria dos serviços, provém de `aws_costs_usage.resource_id`. Para custos de Athena, este campo é populado com o `workgroup` de `aws_athena_costs_day_usage`."
+      - name: description
+        description: "Descrição do item de linha de custo, fornecida pela AWS. Este campo é preenchido com um valor vazio ('') para os custos provenientes do Athena."
+      - name: billing_origin
+        description: "Origem dos dados de faturamento (ex. 'custos_aws_billing'). Proveniente de ambas as fontes."
+      - name: aws_product_name
+        description: "Nome do produto da AWS (ex. 'AmazonEC2', 'Amazon Athena'). Proveniente de ambas as fontes."
+      - name: circle_id
+        description: "ID do círculo ao qual o custo foi atribuído. Proveniente de ambas as fontes."
+      - name: providedby_id
+        description: "ID do provedor do círculo. Proveniente de ambas as fontes."
+      - name: circle_type
+        description: "Tipo do círculo (ex. 'stream_aligned'). Para custos de Athena, este campo é enriquecido através de um `JOIN` com `holaspirit_circles`. Para outros custos, o valor é herdado de `aws_costs_usage`."
+      - name: tag_repository
+        description: "Valor extraído da tag 'repository' do recurso. Este campo é preenchido com um valor vazio ('') para os custos provenientes do Athena."
+      - name: tag_product
+        description: "Valor extraído da tag 'product' do recurso. Este campo é preenchido com um valor vazio ('') para os custos provenientes do Athena."
+      - name: tag_management
+        description: "Valor extraído da tag 'management' do recurso. Este campo é preenchido com um valor vazio ('') para os custos provenientes do Athena."
+      - name: tag_name
+        description: "Tag de nome associada ao recurso. Para custos de Athena, este campo recebe o valor do `workgroup`. Para outros custos, provém da tag 'name' em `aws_costs_usage`."
+      - name: tag_policy_compliant
+        description: "Indicador booleano que sinaliza se o recurso atende à política de tagueamento. Para custos de Athena, este valor é definido como `TRUE` por padrão."
+      - name: tag_policy_compliant_actual
+        description: "Indicador booleano que reflete a conformidade de tagueamento no momento do uso. Para custos de Athena, este valor é definido como `TRUE` por padrão."
+      - name: environment
+        description: "Ambiente associado ao recurso (ex. 'production', 'development'). Proveniente de ambas as fontes."
+      - name: usage_type
+        description: "Descrição do tipo de uso específico do serviço da AWS. Este campo é preenchido com um valor vazio ('') para os custos provenientes do Athena."
+      - name: pricing_term
+        description: "Termo de precificação para o uso (ex. 'OnDemand'). Este campo é preenchido com um valor vazio ('') para os custos provenientes do Athena."
+      - name: account_id
+        description: "ID da conta da AWS onde o custo foi gerado. Proveniente de ambas as fontes."
+      - name: account_name
+        description: "Nome legível da conta da AWS. Proveniente de ambas as fontes."
+      - name: region
+        description: "Região da AWS onde o recurso foi provisionado. Proveniente de ambas as fontes."
+      - name: reservation_cost
+        description: "Custo diário agregado associado a instâncias reservadas. Calculado como `SUM(reservation_cost)`. Para custos de Athena, este valor é definido como `0.0`."
+      - name: unblended_cost
+        description: "Custo diário agregado não combinado. Para custos gerais, é `SUM(unblended_cost)`. Para custos de Athena, é `SUM(total_cost)`."

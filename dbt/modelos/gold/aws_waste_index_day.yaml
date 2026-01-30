@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: aws_waste_index_day
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: ['classificacao_da_informacao.publico']
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:** Consolidar e apresentar diariamente os dados de desperdício de custos (`waste_cost`) de instâncias do Amazon RDS. Esta tabela promove os dados calculados na camada `silver` para a camada `gold`, servindo como a fonte de dados final para monitorar e analisar a ineficiência de custos na frota de RDS.
+      **Escopo:** Inclui apenas dados de desperdício para o serviço 'Amazon Relational Database Service' derivados da tabela `silver.aws_rds_waste_index`. Os custos são agregados diariamente por instância.
+      **Audiência:** Analistas de FinOps e engenheiros de plataforma que precisam identificar quais instâncias RDS estão gerando mais desperdício e quais ações (`recommendation`) devem ser tomadas para otimizá-las.
+      **Processo:** A query agrega os registros da fonte `silver.aws_rds_waste_index` por dia e por todas as dimensões do recurso (conta, região, círculo, ID do recurso, etc.). O `SUM` é aplicado ao `waste_cost` e `total_cost` para consolidar os valores diários por instância. A coluna `instance_name` é renomeada para `resource_name` para padronização.
+      **Recorrência de atualização:** Diária.
+
+    tags: [gold, will, custos_cloud, finops, waste, rds]
+
+    columns:
+      - name: start_date
+        description: "A data de referência para a análise de desperdício."
+      - name: account_id
+        description: "O ID da conta da AWS onde a instância reside."
+      - name: account_name
+        description: "O nome legível da conta da AWS."
+      - name: environment
+        description: "O ambiente da instância (ex. 'production', 'development')."
+      - name: region
+        description: "A região da AWS onde a instância está localizada."
+      - name: circle_id
+        description: "O ID do círculo (time) responsável pela instância."
+      - name: aws_product_name
+        description: "O nome do produto AWS, que será sempre 'Amazon Relational Database Service' para esta tabela."
+      - name: resource_name
+        description: "O nome legível da instância RDS (renomeado de `instance_name`)."
+      - name: resource_id
+        description: "O ID único do recurso (a instância RDS)."
+      - name: recommendation
+        description: "A recomendação de ação para reduzir o desperdício, originada da análise na camada Silver."
+      - name: waste_cost
+        description: "O custo monetário diário estimado do desperdício para esta instância."
+      - name: total_cost
+        description: "O custo total diário da instância, para contextualizar a magnitude do desperdício."

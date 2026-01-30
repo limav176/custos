@@ -1,0 +1,71 @@
+version: 2
+
+models:
+  - name: aws_rds_reservations_instances_by_month
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:**
+      Promover os dados detalhados de instâncias de reservas de RDS da camada Silver para a camada Gold. Esta tabela atua como uma fonte de verdade para análises granulares sobre cada instância reservada.
+
+      **Escopo e Lógica:**
+      Este é um modelo de "passagem" (pass-through), projetado para governança de dados.
+      - **Fonte de Dados:**
+        - `silver.silver_aws_rds_reservations_instances_details`: A tabela na camada Silver que já contém os dados detalhados e enriquecidos por instância.
+      - **Lógica Principal:**
+        - A query executa um `SELECT *` da tabela de origem, sem aplicar nenhuma transformação.
+        - O objetivo é endossar a tabela Silver como uma fonte de dados confiável e pronta para consumo, disponibilizando-a no schema Gold para usuários finais.
+
+      **Audiência:**
+      Engenheiros de FinOps e de plataforma que precisam investigar o comportamento individual de instâncias RDS, incluindo seu status de atividade, elegibilidade para reserva, horas de uso e índices de eficiência.
+
+      **Processo:**
+      A tabela é uma cópia 1-para-1 da sua fonte na camada Silver e é atualizada em sincronia com ela.
+
+      **Recorrência:**
+      Diária (ou conforme a frequência de atualização da fonte).
+
+    tags: [gold, will, custos_cloud, rds]
+
+    columns:
+      - name: month
+        description: "O mês de referência para os dados da instância."
+      - name: account_name
+        description: "O nome da conta da AWS onde a instância reside."
+      - name: region
+        description: "A região da AWS onde a instância está localizada."
+      - name: circle_id
+        description: "O ID do Círculo (time) associado à instância."
+      - name: active
+        description: "Indica (booleano) se a instância esteve ativa por um período mínimo (ex. 15 dias) no mês, para ser considerada em uso."
+      - name: eligible_commit
+        description: "Indica (booleano) se o tipo da instância é elegível para um compromisso de reserva."
+      - name: resource_id
+        description: "O ID único do recurso (a instância RDS específica)."
+      - name: instance_name
+        description: "O nome legível da instância RDS."
+      - name: engine
+        description: "O motor de banco de dados da instância (ex. 'postgresql')."
+      - name: instance_size
+        description: "O tamanho (tipo) real da instância RDS (ex. 'db.r6g.large')."
+      - name: instance_commited
+        description: "O tipo de instância para o qual o compromisso de reserva foi feito, que pode ser diferente do tamanho real em cenários de 'size flexibility'."
+      - name: instance_hours
+        description: "O total de horas que a instância esteve em execução durante o mês."
+      - name: instance_hours_normalized
+        description: "As horas de uso normalizadas, um fator usado pela AWS para aplicar reservas flexíveis entre tamanhos de instância."
+      - name: instance_amount_normalized
+        description: "A quantidade normalizada da instância, relacionada ao 'instance_hours_normalized'."
+      - name: recommendation
+        description: "Uma recomendação de ação gerada automaticamente com base na análise de elegibilidade, atividade e desperdício."
+      - name: waste_index
+        description: "Um índice de 0 a 1 que quantifica o desperdício, combinando fatores como subutilização ou ineficiência da instância."

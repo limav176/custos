@@ -1,0 +1,65 @@
+version: 2
+
+models:
+  - name: aws_athena_costs_day_usage
+    meta:
+      domain: custos_cloud
+      layer: gold
+      schema: custos_cloud_gold
+      owner: observability-platform@willbank.com.br
+      openmetadata:
+        tags: [
+          'classificacao_da_informacao.publico'
+        ]
+        tier: 'Tier.Tier2'
+
+    description: |
+      **Propósito:**
+      Ratear os custos diários do serviço compartilhado Amazon Athena, alocando-os para os Círculos (times) com base no uso real. O objetivo é fornecer uma visão de custo precisa, responsabilizando cada Círculo pelo volume de dados que suas consultas processam.
+
+      **Escopo e Lógica:**
+      A tabela implementa um robusto sistema de rateio proporcional com uma etapa de reconciliação para garantir que 100% dos custos sejam alocados.
+      - **Fontes de Dados:**
+        - `silver.aws_costs_usage`: Fornece os custos brutos do serviço Amazon Athena por *workgroup*.
+        - `datametrics_gold.metricas_circulos_dia`: Fornece o volume de dados escaneados (`nr_datascannedinbytes`) por Círculo para cada query.
+      - **Lógica Principal:**
+        1. **Cálculo da Taxa de Uso:** A query calcula a "taxa de uso" para cada Círculo dentro de um *workgroup* específico. A fórmula é: `taxa = (bytes escaneados pelo Círculo no workgroup) / (total de bytes escaneados no workgroup)`.
+        2. **Rateio Proporcional:** O custo total de cada *workgroup* é multiplicado pela taxa de uso de cada Círculo, distribuindo o custo proporcionalmente.
+        3. **Reconciliação de Custos:** A query compara o custo total do Athena com o total que foi rateado com sucesso. Qualquer diferença (custo "sobra" que não pôde ser associado a um uso) é explicitamente calculada.
+        4. **Alocação da Sobra:** Os custos não rateados são atribuídos a um *workgroup* genérico chamado 'unmatched' e alocados ao Círculo 'DataPlat', garantindo que a soma final da tabela corresponda exatamente ao custo total do serviço.
+        5. **Limpeza Final:** A query realiza limpezas finais nos dados, como corrigir IDs de Círculo inválidos.
+
+      **Audiência:**
+      Líderes de Engenharia, Analistas de FinOps e Círculos que utilizam o Athena, para que possam entender e otimizar seus custos com base no padrão de uso de consultas.
+
+      **Processo:**
+      Diariamente, a tabela é reconstruída, processando os custos e os logs de uso do dia anterior para realizar o rateio.
+
+      **Recorrência:**
+      Diária.
+
+    tags: [gold, will, custos_cloud]
+
+    columns:
+      - name: start_date
+        description: "O dia de referência para o custo."
+      - name: account_id
+        description: "ID da conta da AWS (valor estático)."
+      - name: environment
+        description: "Ambiente associado ao custo (valor estático)."
+      - name: account_name
+        description: "Nome da conta da AWS (valor estático)."
+      - name: region
+        description: "Região da AWS (valor estático)."
+      - name: billing_origin
+        description: "Origem da cobrança (valor estático)."
+      - name: workgroup
+        description: "O workgroup do Athena que originou o custo. 'unmatched' para custos não rastreados."
+      - name: aws_product_name
+        description: "Nome do produto da AWS ('Amazon Athena')."
+      - name: circle_id
+        description: "ID do Círculo ao qual o custo foi alocado após o rateio."
+      - name: providedby_id
+        description: "ID do provedor do Círculo, estaticamente definido como 'DataPlat'."
+      - name: total_cost
+        description: "O custo final do Athena alocado para o Círculo no dia."
