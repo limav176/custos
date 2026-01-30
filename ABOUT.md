@@ -1,0 +1,1 @@
+O  domínio pertencente ao time de Observability Platform contempla visões de acompanhamento de custos de cloud.

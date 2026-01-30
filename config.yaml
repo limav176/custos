@@ -1,0 +1,10 @@
+domain: custos_cloud
+display_name: Custos Cloud
+channel_slack: platform-engineering-monitoring
+check_dbt_source: False
+circle: Observability
+circle_id: 62992fc2c997c81650231188
+open_metadata_ingestion: True
+schedule_interval: 0 1,11,15 * * *
+soda_check_silver_gold: False
+airflow_pool: trino_pool
